@@ -91,7 +91,7 @@ Resources:
   DBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: UNWI Aurora — ingress for Postgres from Amplify SSR
+      GroupDescription: UNWI Aurora - ingress for Postgres from Amplify SSR
       VpcId: !Ref VpcId
       # NOTE: Amplify SSR runs in AWS-managed networking with no stable IP
       # range. For v0.1 we allow 5432 from anywhere; Aurora's auth is

@@ -94,17 +94,37 @@ Fill `COGNITO_USER_POOL_ID`, `COGNITO_CLIENT_ID`, `COGNITO_REGION`, and
 
 To add another user later: the same `admin-create-user` command.
 
-## Amplify deploy
+## Production deploy (AWS)
 
-1. Push the repo to a private Amplify-connected Git remote.
-2. Set the env vars from `.env.example` in the Amplify console (use the Aurora
-   Serverless v2 connection string for `DATABASE_URL`).
-3. Scheduled trigger: EventBridge rule, cron `0 2 * * ? *`, target = Amplify
-   scheduled function, payload = POST to `/api/cron/snapshot` with header
-   `x-cron-secret: $CRON_SECRET`. Alternative: AWS EventBridge Scheduler hitting
-   the HTTPS URL directly.
-4. First deploy is empty — hit `/api/cron/snapshot-manual` from the empty-state
-   button OR via curl to seed today's snapshot.
+Fully scripted in `infra/`. Summary:
+
+```bash
+# 1. Durable infra (Cognito + Aurora + Secrets Manager) — ~15 min on first run
+AWS_PROFILE=unwi ADMIN_EMAIL=you@example.org ./infra/deploy.sh
+
+# 2. Read back the env vars (values include live secrets)
+./infra/env.sh > /tmp/unwi-envs.txt
+
+# 3. Connect Amplify to github.com/McBellers-unlocked/unwi (console, ~5 min)
+#    App settings -> Environment variables -> paste the block from step 2.
+#    Amplify auto-detects Next.js; accept the build defaults.
+
+# 4. Wire the nightly cron to the Amplify URL (02:00 UTC)
+./infra/scripts/create-cron.sh https://main.xxxxxxx.amplifyapp.com
+
+# 5. Custom domain: add unworkforceintelligence.org in Amplify console,
+#    copy the printed CNAME target into Cloudflare DNS. ACM cert is
+#    issued by Amplify automatically (~15 min).
+
+# 6. Seed the first snapshot (or click the empty-state button in the UI)
+curl -X POST "$APP_URL/api/cron/snapshot-manual" \
+  -H "x-cron-secret: $(aws secretsmanager get-secret-value \
+      --secret-id unwi/cron-secret --query SecretString --output text \
+      --profile unwi --region eu-west-1)"
+```
+
+Full walk-through with permissions, costs, and teardown in
+[`infra/README.md`](./infra/README.md).
 
 ## Manual seed via curl
 
