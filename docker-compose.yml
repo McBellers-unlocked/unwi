@@ -3,14 +3,18 @@
 
 services:
   postgres:
-    image: postgres:16-alpine
+    # postgres:16 (Debian) rather than alpine because the alpine image wasn't
+    # reachable from a common TLS-proxy environment and the standard image is
+    # already cached on most dev machines.
+    image: postgres:16
     container_name: unwi-postgres
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: unwi
+    # Host-side 5433 avoids clashing with another local postgres on 5432.
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - unwi-pgdata:/var/lib/postgresql/data
     healthcheck:

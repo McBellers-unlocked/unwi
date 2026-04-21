@@ -1,0 +1,281 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  UN Workforce Intelligence (UNWI) — v0.1 durable infrastructure.
+  Cognito user pool + Aurora Serverless v2 Postgres + Secrets Manager.
+  Amplify hosting and DNS are wired up separately (Amplify requires a
+  GitHub OAuth connection that can't be automated cleanly; DNS is at
+  Cloudflare).
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: unwi
+    Description: Short name used as a prefix on every resource.
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC to place Aurora in (typically the default VPC).
+
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: At least two subnets in different AZs for the Aurora DB subnet group.
+
+  DBInstanceClass:
+    Type: String
+    Default: db.serverless
+    Description: Keep this at db.serverless for Aurora Serverless v2.
+
+  DBMinCapacity:
+    Type: Number
+    Default: 0.5
+    MinValue: 0.5
+    Description: Minimum ACU. 0.5 is the cheapest; raise to reduce cold-start latency.
+
+  DBMaxCapacity:
+    Type: Number
+    Default: 2
+    Description: Maximum ACU. Scale up if the dashboard starts paging or the
+                 cron snapshot runs long.
+
+  CognitoDomainPrefix:
+    Type: String
+    Default: unwi-auth
+    AllowedPattern: "^[a-z0-9-]{3,63}$"
+    Description: Globally unique prefix for the Cognito hosted-UI domain.
+                 Ends up as https://<prefix>.auth.<region>.amazoncognito.com.
+                 If the default is taken, append a short suffix.
+
+  AdminEmail:
+    Type: String
+    Default: ""
+    Description: Optional. If set, a Cognito admin user is pre-created with
+                 this email and a temporary password that you retrieve from
+                 the stack outputs.
+
+Conditions:
+  CreateAdminUser: !Not [!Equals [!Ref AdminEmail, ""]]
+
+Resources:
+  # --------------------------------------------------------------------
+  # Secrets Manager — DB master password + cron secret
+  # --------------------------------------------------------------------
+
+  DBMasterSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub "${ProjectName}/aurora/master"
+      Description: Master password for the UNWI Aurora cluster.
+      GenerateSecretString:
+        SecretStringTemplate: '{"username": "unwiadmin"}'
+        GenerateStringKey: password
+        PasswordLength: 32
+        ExcludeCharacters: '"@/\'
+      Tags:
+        - { Key: Project, Value: !Ref ProjectName }
+
+  CronSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub "${ProjectName}/cron-secret"
+      Description: Header value required on /api/cron/snapshot requests.
+      GenerateSecretString:
+        PasswordLength: 48
+        ExcludeCharacters: '"@/\'
+      Tags:
+        - { Key: Project, Value: !Ref ProjectName }
+
+  # --------------------------------------------------------------------
+  # Networking — SG + subnet group
+  # --------------------------------------------------------------------
+
+  DBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: UNWI Aurora — ingress for Postgres from Amplify SSR
+      VpcId: !Ref VpcId
+      # NOTE: Amplify SSR runs in AWS-managed networking with no stable IP
+      # range. For v0.1 we allow 5432 from anywhere; Aurora's auth is
+      # password-only via Secrets Manager with a 32-char random password.
+      # Tighten once the prototype has a VPC-bound runtime (e.g. ECS).
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: 0.0.0.0/0
+          Description: Postgres from Amplify + devs (tighten post-v0.1)
+      Tags:
+        - { Key: Project, Value: !Ref ProjectName }
+        - { Key: Name, Value: !Sub "${ProjectName}-aurora-sg" }
+
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: UNWI Aurora subnet group
+      SubnetIds: !Ref SubnetIds
+      Tags:
+        - { Key: Project, Value: !Ref ProjectName }
+
+  # --------------------------------------------------------------------
+  # Aurora Serverless v2 — Postgres
+  # --------------------------------------------------------------------
+
+  DBCluster:
+    Type: AWS::RDS::DBCluster
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Properties:
+      Engine: aurora-postgresql
+      EngineVersion: "16.6"
+      DatabaseName: unwi
+      DBClusterIdentifier: !Sub "${ProjectName}-aurora"
+      MasterUsername: !Sub "{{resolve:secretsmanager:${DBMasterSecret}:SecretString:username}}"
+      MasterUserPassword: !Sub "{{resolve:secretsmanager:${DBMasterSecret}:SecretString:password}}"
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      VpcSecurityGroupIds:
+        - !GetAtt DBSecurityGroup.GroupId
+      ServerlessV2ScalingConfiguration:
+        MinCapacity: !Ref DBMinCapacity
+        MaxCapacity: !Ref DBMaxCapacity
+      BackupRetentionPeriod: 7
+      StorageEncrypted: true
+      EnableIAMDatabaseAuthentication: false
+      EnableHttpEndpoint: false
+      Tags:
+        - { Key: Project, Value: !Ref ProjectName }
+
+  DBInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: !Sub "${ProjectName}-aurora-writer"
+      DBClusterIdentifier: !Ref DBCluster
+      DBInstanceClass: !Ref DBInstanceClass
+      Engine: aurora-postgresql
+      PubliclyAccessible: true
+      Tags:
+        - { Key: Project, Value: !Ref ProjectName }
+
+  # --------------------------------------------------------------------
+  # Cognito — user pool + hosted UI + app client
+  # --------------------------------------------------------------------
+
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub "${ProjectName}-users"
+      AutoVerifiedAttributes: [email]
+      UsernameAttributes: [email]
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: true
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 12
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Required: true
+          Mutable: true
+      UserPoolTags:
+        Project: !Ref ProjectName
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub "${ProjectName}-web"
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      # OAuth2 "Authorization Code" flow for hosted-UI.
+      AllowedOAuthFlows: [code]
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthScopes: [openid, email, profile]
+      SupportedIdentityProviders: [COGNITO]
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      # Both local and deploy hostnames — extend as subdomains come online.
+      CallbackURLs:
+        - http://localhost:3000/api/auth/callback
+        - http://localhost:3003/api/auth/callback
+        - https://unworkforceintelligence.org/api/auth/callback
+        - https://www.unworkforceintelligence.org/api/auth/callback
+      LogoutURLs:
+        - http://localhost:3000/login
+        - http://localhost:3003/login
+        - https://unworkforceintelligence.org/login
+        - https://www.unworkforceintelligence.org/login
+      AccessTokenValidity: 8
+      IdTokenValidity: 8
+      RefreshTokenValidity: 30
+      TokenValidityUnits:
+        AccessToken: hours
+        IdToken: hours
+        RefreshToken: days
+      PreventUserExistenceErrors: ENABLED
+
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Ref CognitoDomainPrefix
+      UserPoolId: !Ref UserPool
+
+  AdminUser:
+    Type: AWS::Cognito::UserPoolUser
+    Condition: CreateAdminUser
+    Properties:
+      UserPoolId: !Ref UserPool
+      Username: !Ref AdminEmail
+      DesiredDeliveryMediums: [EMAIL]
+      UserAttributes:
+        - { Name: email, Value: !Ref AdminEmail }
+        - { Name: email_verified, Value: "true" }
+
+Outputs:
+  # Consumed by Amplify env-vars. Copy these values into the console after
+  # `infra/deploy.sh` reports "stack ready".
+
+  CognitoUserPoolId:
+    Description: COGNITO_USER_POOL_ID
+    Value: !Ref UserPool
+    Export: { Name: !Sub "${ProjectName}:CognitoUserPoolId" }
+
+  CognitoClientId:
+    Description: COGNITO_CLIENT_ID
+    Value: !Ref UserPoolClient
+    Export: { Name: !Sub "${ProjectName}:CognitoClientId" }
+
+  CognitoDomain:
+    Description: COGNITO_DOMAIN (bare hostname, no scheme)
+    Value: !Sub "${CognitoDomainPrefix}.auth.${AWS::Region}.amazoncognito.com"
+    Export: { Name: !Sub "${ProjectName}:CognitoDomain" }
+
+  CognitoRegion:
+    Description: COGNITO_REGION
+    Value: !Ref AWS::Region
+    Export: { Name: !Sub "${ProjectName}:CognitoRegion" }
+
+  DBClusterEndpoint:
+    Description: Aurora writer endpoint (host portion of DATABASE_URL)
+    Value: !GetAtt DBCluster.Endpoint.Address
+
+  DBClusterPort:
+    Description: Aurora port (5432)
+    Value: !GetAtt DBCluster.Endpoint.Port
+
+  DBName:
+    Description: Aurora database name
+    Value: unwi
+
+  DBMasterSecretArn:
+    Description: Secret ARN holding the DB username + password (JSON)
+    Value: !Ref DBMasterSecret
+
+  CronSecretArn:
+    Description: Secret ARN holding the /api/cron/* x-cron-secret value
+    Value: !Ref CronSecret
+
+  DBSecurityGroupId:
+    Description: Security group ID — extend ingress rules here if you tighten CIDRs
+    Value: !GetAtt DBSecurityGroup.GroupId

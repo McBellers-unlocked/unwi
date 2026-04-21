@@ -40,6 +40,13 @@ export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   if (isOpen(pathname)) return NextResponse.next();
 
+  // Local dev fallback: if Cognito isn't configured, skip the gate. Lets
+  // `npm run dev` work end-to-end without provisioning a user pool. In prod
+  // (Amplify) the env vars will be set and this branch doesn't fire.
+  if (!process.env.COGNITO_CLIENT_ID || !process.env.COGNITO_DOMAIN) {
+    return NextResponse.next();
+  }
+
   const token = req.cookies.get(COOKIE_NAME)?.value;
   if (!token || !isJwtStillValid(token)) {
     const url = req.nextUrl.clone();

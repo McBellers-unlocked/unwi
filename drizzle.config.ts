@@ -1,17 +1,18 @@
+import { config as loadEnv } from "dotenv";
 import type { Config } from "drizzle-kit";
 
+// Drizzle-kit runs outside the Next.js runtime, so load .env.local manually.
+loadEnv({ path: ".env.local" });
+loadEnv({ path: ".env" });
+
 const DATABASE_URL = process.env.DATABASE_URL;
-if (!DATABASE_URL) {
-  // Keeps drizzle-kit usable in `generate`/`check` without a live DB.
-  // The error surfaces only when push/migrate/studio need an actual connection.
-}
 
 const config: Config = {
   schema: "./src/lib/db/schema.ts",
   out: "./migrations",
   dialect: "postgresql",
   dbCredentials: {
-    url: DATABASE_URL ?? "postgres://postgres:postgres@localhost:5432/unwi",
+    url: DATABASE_URL ?? "postgres://postgres:postgres@localhost:5433/unwi",
   },
   strict: true,
   verbose: true,
