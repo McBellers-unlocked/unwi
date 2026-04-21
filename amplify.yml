@@ -1,0 +1,34 @@
+# AWS Amplify build + deploy config.
+#
+# The scheduled job below hits /api/cron/snapshot at 02:00 UTC daily with the
+# x-cron-secret header. EventBridge + Lambda is an alternative; keeping the
+# trigger definition adjacent to the app means one source-of-truth.
+
+version: 1
+frontend:
+  phases:
+    preBuild:
+      commands:
+        - npm ci
+    build:
+      commands:
+        - npm run db:generate
+        - npm run build
+  artifacts:
+    baseDirectory: .next
+    files:
+      - "**/*"
+  cache:
+    paths:
+      - node_modules/**/*
+      - .next/cache/**/*
+
+# Requires manual setup in the Amplify console OR via CLI.
+# cron: "0 2 * * ? *"  (AWS Schedule expression for daily 02:00 UTC)
+# target: /api/cron/snapshot  with header x-cron-secret: $CRON_SECRET
+#
+# See README.md → "Nightly cron" for the exact Amplify/EventBridge steps.
+
+env:
+  variables:
+    NEXT_TELEMETRY_DISABLED: "1"

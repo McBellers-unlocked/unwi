@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body {
+  background: #ffffff;
+  color: #1a1f2e;
+}
+
+/* Bloomberg-terminal-meets-policy-brief type scale. */
+h1, h2, h3 {
+  font-family: var(--font-serif), Georgia, serif;
+}
+body {
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+.panel {
+  background: #ffffff;
+  border: 1px solid theme("colors.panel-line");
+  border-radius: 6px;
+}
+
+.stat-value {
+  font-family: var(--font-serif), Georgia, serif;
+  font-weight: 600;
+  font-size: 2rem;
+  line-height: 1.1;
+}
+
+.module-anchor {
+  scroll-margin-top: 72px;
+}
