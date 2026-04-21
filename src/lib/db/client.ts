@@ -12,6 +12,8 @@ import * as schema from "@/lib/db/schema";
 declare global {
   // eslint-disable-next-line no-var
   var __unwi_pg_pool: Pool | undefined;
+  // eslint-disable-next-line no-var
+  var __unwi_drizzle: ReturnType<typeof drizzle<typeof schema>> | undefined;
 }
 
 function buildPool(): Pool {
@@ -29,11 +31,42 @@ function buildPool(): Pool {
   });
 }
 
-// Hot-reload in Next.js dev mode would otherwise create dozens of Pools.
-const pool = globalThis.__unwi_pg_pool ?? buildPool();
-if (process.env.NODE_ENV !== "production") {
-  globalThis.__unwi_pg_pool = pool;
+/**
+ * Lazy accessors. The Pool is only built on first query — this matters for
+ * Next.js build-time static analysis and for Amplify's build step, both of
+ * which may import modules that transitively reach this file before the
+ * DATABASE_URL env var is available.
+ */
+export function getPool(): Pool {
+  if (!globalThis.__unwi_pg_pool) {
+    globalThis.__unwi_pg_pool = buildPool();
+  }
+  return globalThis.__unwi_pg_pool;
 }
 
-export const db = drizzle(pool, { schema });
-export { pool };
+function getDb() {
+  if (!globalThis.__unwi_drizzle) {
+    globalThis.__unwi_drizzle = drizzle(getPool(), { schema });
+  }
+  return globalThis.__unwi_drizzle;
+}
+
+/**
+ * Proxy that defers resolution of the drizzle client until the first property
+ * access. Call-site ergonomics stay identical to `import { db } from ...`.
+ */
+export const db = new Proxy({} as ReturnType<typeof getDb>, {
+  get(_target, prop) {
+    const real = getDb() as unknown as Record<string | symbol, unknown>;
+    const value = real[prop];
+    return typeof value === "function" ? value.bind(real) : value;
+  },
+});
+
+export const pool = new Proxy({} as Pool, {
+  get(_target, prop) {
+    const real = getPool() as unknown as Record<string | symbol, unknown>;
+    const value = real[prop];
+    return typeof value === "function" ? value.bind(real) : value;
+  },
+});
