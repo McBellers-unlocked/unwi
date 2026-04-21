@@ -102,21 +102,24 @@ Fully scripted in `infra/`. Summary:
 # 1. Durable infra (Cognito + Aurora + Secrets Manager) — ~15 min on first run
 AWS_PROFILE=unwi ADMIN_EMAIL=you@example.org ./infra/deploy.sh
 
-# 2. Read back the env vars (values include live secrets)
+# 2. Apply the schema to Aurora (one-time)
+./infra/scripts/init-db.sh
+
+# 3. Read back the env vars (values include live secrets)
 ./infra/env.sh > /tmp/unwi-envs.txt
 
-# 3. Connect Amplify to github.com/McBellers-unlocked/unwi (console, ~5 min)
-#    App settings -> Environment variables -> paste the block from step 2.
+# 4. Connect Amplify to github.com/McBellers-unlocked/unwi (console, ~5 min)
+#    App settings -> Environment variables -> paste the block from step 3.
 #    Amplify auto-detects Next.js; accept the build defaults.
 
-# 4. Wire the nightly cron to the Amplify URL (02:00 UTC)
+# 5. Wire the nightly cron to the Amplify URL (02:00 UTC)
 ./infra/scripts/create-cron.sh https://main.xxxxxxx.amplifyapp.com
 
-# 5. Custom domain: add unworkforceintelligence.org in Amplify console,
+# 6. Custom domain: add unworkforceintelligence.org in Amplify console,
 #    copy the printed CNAME target into Cloudflare DNS. ACM cert is
 #    issued by Amplify automatically (~15 min).
 
-# 6. Seed the first snapshot (or click the empty-state button in the UI)
+# 7. Seed the first snapshot (or click the empty-state button in the UI)
 curl -X POST "$APP_URL/api/cron/snapshot-manual" \
   -H "x-cron-secret: $(aws secretsmanager get-secret-value \
       --secret-id unwi/cron-secret --query SecretString --output text \

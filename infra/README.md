@@ -50,6 +50,18 @@ ADMIN_EMAIL=you@example.org ./infra/deploy.sh
 
 Cognito emails a temporary password; first sign-in forces a reset.
 
+## Apply the schema to Aurora
+
+Before the first cron run, the four UNWI tables need to exist:
+
+```bash
+AWS_PROFILE=unwi ./infra/scripts/init-db.sh
+```
+
+Uses `drizzle-kit push --force` to diff the Drizzle schema against the live
+cluster and apply only the missing pieces. Idempotent — safe to run again
+after any schema change.
+
 ## Get the env vars for Amplify
 
 ```bash
