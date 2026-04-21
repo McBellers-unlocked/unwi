@@ -24,6 +24,27 @@ TEMPLATE="$HERE/template.yaml"
 
 echo "Deploying $STACK to $REGION via profile $PROFILE..."
 
+# --- Handle a prior rolled-back stack --------------------------------
+# CloudFormation refuses to update a stack in ROLLBACK_COMPLETE — that state
+# means "creation failed, nothing usable exists" and the only option is to
+# delete and try again. Happens when an earlier deploy hit a permission or
+# value error.
+EXISTING_STATUS=$(aws cloudformation describe-stacks \
+  --stack-name "$STACK" \
+  --query 'Stacks[0].StackStatus' --output text \
+  --profile "$PROFILE" --region "$REGION" 2>/dev/null || true)
+
+if [[ "$EXISTING_STATUS" == "ROLLBACK_COMPLETE" ]]; then
+  echo "  prior stack in ROLLBACK_COMPLETE — deleting before re-creating..."
+  aws cloudformation delete-stack \
+    --stack-name "$STACK" \
+    --profile "$PROFILE" --region "$REGION"
+  aws cloudformation wait stack-delete-complete \
+    --stack-name "$STACK" \
+    --profile "$PROFILE" --region "$REGION"
+  echo "  old stack deleted"
+fi
+
 # --- Auto-discover default VPC + subnets ----------------------------
 VPC_ID=$(aws ec2 describe-vpcs \
   --filters Name=is-default,Values=true \
