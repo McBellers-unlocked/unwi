@@ -379,7 +379,7 @@ def lambda_handler(event, context):
         from classify_aggregator import fetch_and_classify
 
         out_dir.mkdir(parents=True, exist_ok=True)
-        csv_path, n_total, _n_digital = fetch_and_classify(out_dir)
+        csv_path, n_total, _n_digital, _scope = fetch_and_classify(out_dir)
         return _run_dry(csv_path, out_dir)
 
     from classify_aggregator import fetch_and_classify
@@ -394,9 +394,11 @@ def lambda_handler(event, context):
 
     work_dir = Path("/tmp/unwi-work")
     work_dir.mkdir(parents=True, exist_ok=True)
-    csv_path, n_total, n_digital = fetch_and_classify(work_dir)
+    csv_path, n_total, n_digital, scope_filter = fetch_and_classify(work_dir)
     rows_loaded = load_rows(csv_path)
-    artefacts = build_all(csv_path, PRIMARY_PERIOD, COMPARATOR_PERIOD)
+    artefacts = build_all(
+        csv_path, PRIMARY_PERIOD, COMPARATOR_PERIOD, scope_filter=scope_filter,
+    )
 
     s3_prefix = _upload_artefacts(artefacts, bucket, prefix, snapshot_date)
 
@@ -418,6 +420,7 @@ def lambda_handler(event, context):
         "snapshot_date": snapshot_date,
         "rows_fetched": n_total,
         "rows_classified": n_digital,
+        "scope_filter": scope_filter,
         "s3_key_prefix": s3_prefix,
         "classifier_sha": _classifier_sha(),
     }

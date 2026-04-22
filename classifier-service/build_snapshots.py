@@ -640,6 +640,7 @@ def build_cut_manifest(
     primary: tuple[date, date],
     comparator: tuple[date, date],
     cut_generated_at: str | None = None,
+    scope_filter: dict | None = None,
 ) -> bytes:
     primary_rows = [r for r in rows if _in_period(r.posted_date, primary)]
     comp_rows = [r for r in rows if _in_period(r.posted_date, comparator)]
@@ -674,6 +675,9 @@ def build_cut_manifest(
         "classifier_version": {
             "file_sha1": _classifier_sha(),
         },
+        # scope_filter is populated by the Lambda handler (empty in dry-run).
+        # Expected keys: type, whitelist_size, filtered_in_rows, filtered_out_rows.
+        "scope_filter": scope_filter or {"type": "none", "filtered_in_rows": None, "filtered_out_rows": None},
         "period_from": primary[0].isoformat(),
         "period_to": primary[1].isoformat(),
         "comparator_from": comparator[0].isoformat(),
@@ -703,6 +707,7 @@ def build_all(
     primary: tuple[date, date] = PRIMARY_PERIOD,
     comparator: tuple[date, date] = COMPARATOR_PERIOD,
     cut_generated_at: str | None = None,
+    scope_filter: dict | None = None,
 ) -> dict[str, bytes]:
     rows = load_rows(csv_path)
     has_location = any(r.location for r in rows)
@@ -721,7 +726,7 @@ def build_all(
         "collision_profiles.json": build_collision_profiles(rows, primary),
         "staff_vs_consultant.json": build_staff_vs_consultant(rows, primary),
         "cut_manifest.json": build_cut_manifest(
-            rows, primary, comparator, cut_generated_at
+            rows, primary, comparator, cut_generated_at, scope_filter=scope_filter,
         ),
     }
     if has_location:

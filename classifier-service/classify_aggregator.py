@@ -16,6 +16,7 @@ import time
 import urllib.request
 from pathlib import Path
 from classifier_v2 import classify
+from un_system import classify_scope, whitelist_size
 
 API = "https://sjtdudezqssbmratdgmy.supabase.co/functions/v1/jobs-api"
 OUT_PATH = r"C:\dev\undigitalworkforceintelligence\classified_v2_full.csv"
@@ -52,17 +53,24 @@ def fetch_page(page, api_url=API, per_page=PER_PAGE):
 
 
 def fetch_and_classify(out_dir, api_url=API, per_page=PER_PAGE):
-    """Fetch all postings from the aggregator API, classify, write rich CSV.
+    """Fetch all postings, filter to UN Common System, classify, write rich CSV.
 
-    Returns (classified_csv_path, rows_fetched, rows_classified).
+    The UN whitelist is applied BEFORE classification — non-UN orgs (NATO, EU
+    institutions, Bretton Woods, regional dev banks, OSCE, ESA, etc.) never
+    enter any downstream metric.
+
+    Returns (classified_csv_path, rows_fetched, rows_classified, scope_filter).
+    scope_filter is a dict embedded into cut_manifest so the filter is auditable.
     """
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / "classified_v2_full.csv"
 
     page = 1
-    n_total = 0
-    n_digital = 0
+    n_total = 0             # rows returned by the aggregator
+    n_filtered_in = 0       # rows that passed the UN whitelist
+    n_filtered_out = 0      # rows rejected by scope filter
+    n_digital = 0           # passed rows that classified into a digital segment
     with out_path.open("w", encoding="utf-8", newline="") as f:
         w = csv.DictWriter(f, fieldnames=RICH_FIELDS, extrasaction="ignore")
         w.writeheader()
@@ -73,11 +81,17 @@ def fetch_and_classify(out_dir, api_url=API, per_page=PER_PAGE):
                 break
             for row in items:
                 n_total += 1
+                org = row.get("organization") or ""
+                in_scope, _bucket, _reason = classify_scope(org)
+                if not in_scope:
+                    n_filtered_out += 1
+                    continue
+                n_filtered_in += 1
                 seg, conf, reason = classify(
                     {
                         "title": row.get("title") or "",
                         "description": row.get("description") or "",
-                        "organization": row.get("organization") or "",
+                        "organization": org,
                     }
                 )
                 if seg:
@@ -86,7 +100,7 @@ def fetch_and_classify(out_dir, api_url=API, per_page=PER_PAGE):
                     {
                         "id": row.get("id", ""),
                         "title": row.get("title", ""),
-                        "organization": row.get("organization", ""),
+                        "organization": org,
                         "source": row.get("source", ""),
                         "segment": seg or "",
                         "confidence": conf,
@@ -102,7 +116,14 @@ def fetch_and_classify(out_dir, api_url=API, per_page=PER_PAGE):
             if not data.get("hasMore"):
                 break
             page += 1
-    return out_path, n_total, n_digital
+
+    scope_filter = {
+        "type": "un_common_system_whitelist",
+        "whitelist_size": whitelist_size(),
+        "filtered_in_rows": n_filtered_in,
+        "filtered_out_rows": n_filtered_out,
+    }
+    return out_path, n_total, n_digital, scope_filter
 
 
 def main():

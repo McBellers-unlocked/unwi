@@ -10,12 +10,19 @@ export async function Section09Methodology() {
   const m = manifest as unknown as {
     classifier_version_sha?: string;
     classifier_version?: { file_sha1?: string };
+    scope_filter?: {
+      type?: string;
+      whitelist_size?: number;
+      filtered_in_rows?: number | null;
+      filtered_out_rows?: number | null;
+    };
   };
   const sha =
     m?.classifier_version_sha ??
     m?.classifier_version?.file_sha1 ??
     "unknown";
   const shaShort = sha.slice(0, 12);
+  const scope = m?.scope_filter;
 
   return (
     <SectionShell
@@ -24,6 +31,29 @@ export async function Section09Methodology() {
       title="Methodology &amp; Coverage"
       subtitle="How the numbers are computed. Reproducible from the same classifier + inputs."
     >
+      <div className="bg-muted-soft px-4 py-3 rounded-md mb-6 text-sm leading-relaxed">
+        <p className="font-semibold text-navy mb-1">Scope</p>
+        <p className="text-navy">
+          UN Common System entities only. Whitelist includes UN Secretariat
+          (all departments), Funds &amp; Programmes, Specialized Agencies,
+          Regional Commissions, Peacekeeping Missions, and the International
+          Court of Justice.
+        </p>
+        <p className="text-muted mt-2">
+          Bretton Woods institutions (IMF, World Bank Group, IFC) are excluded:
+          they operate on independent staff rules, salary scales, and pension
+          systems outside the UN Common System. Also excluded: NATO, all EU
+          institutions, regional development banks (ADB, AfDB, IDB, AIIB),
+          OSCE, ESA, OECD, Council of Europe, Commonwealth Secretariat.
+        </p>
+        {scope?.type === "un_common_system_whitelist" && (
+          <p className="text-xs font-mono text-muted mt-2">
+            Filter applied at classification: {scope.whitelist_size} buckets ·{" "}
+            {scope.filtered_in_rows?.toLocaleString() ?? "—"} rows in ·{" "}
+            {scope.filtered_out_rows?.toLocaleString() ?? "—"} rows out
+          </p>
+        )}
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div>
           <h3 className="font-serif text-navy text-lg mb-2">Data sources</h3>
