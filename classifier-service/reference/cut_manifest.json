@@ -1,0 +1,106 @@
+{
+  "cut_generated_at": "2026-04-21T12:09:19+00:00",
+  "snapshot_path": "C:\\dev\\unlocked-path-finder\\data\\snapshots\\2026-04-21",
+  "classifier_version": {
+    "file_sha1": "7f702e1d76597307ede1676a71c250b11841ed92",
+    "last_commit_touching_classifier": "67065db987bb9bc803879c1bc7fb76d3fdd7587d"
+  },
+  "period_from": "2026-01-01",
+  "period_to": "2026-03-31",
+  "comparator_from": "2025-10-01",
+  "comparator_to": "2025-12-31",
+  "apples_to_apples": {
+    "common_sources": [
+      "European Defence Agency",
+      "adb.org",
+      "careers.icao.int",
+      "ec-sne",
+      "esa",
+      "eu-agencies-network",
+      "european-commission",
+      "fao.org",
+      "nato",
+      "oracle-hcm:CX_1001",
+      "un-careers",
+      "unicef:pageup",
+      "unops:marketplace",
+      "vacancies.osce.org",
+      "wayback-unicef",
+      "wayback-unops",
+      "wfp:workday",
+      "who",
+      "wipo"
+    ],
+    "common_source_count": 19,
+    "excluded_sources_primary_only": [
+      "careers.wmo.int",
+      "imf.wd5.myworkdayjobs.com",
+      "job.ifad.org",
+      "jobs.ilo.org",
+      "jobs.undp.org",
+      "jobs.unwomen.org",
+      "recruit.imo.org",
+      "worldbankgroup.csod.com",
+      "wto.wd103.myworkdayjobs.com",
+      "www.unfpa.org/jobs"
+    ],
+    "excluded_sources_comparator_only": [
+      "unops:webforms"
+    ],
+    "primary_common_sources_total_rows": 5918,
+    "comparator_common_sources_total_rows": 4329,
+    "primary_common_sources_digital_rows": 445,
+    "comparator_common_sources_digital_rows": 313,
+    "source_ratio_warnings": [
+      {
+        "source": "adb.org",
+        "primary_count": 195,
+        "comparator_count": 57,
+        "ratio": 3.42
+      },
+      {
+        "source": "careers.icao.int",
+        "primary_count": 91,
+        "comparator_count": 4,
+        "ratio": 22.75
+      },
+      {
+        "source": "oracle-hcm:CX_1001",
+        "primary_count": 9,
+        "comparator_count": 1,
+        "ratio": 9.0
+      },
+      {
+        "source": "unicef:pageup",
+        "primary_count": 1158,
+        "comparator_count": 558,
+        "ratio": 2.08
+      },
+      {
+        "source": "vacancies.osce.org",
+        "primary_count": 12,
+        "comparator_count": 1,
+        "ratio": 12.0
+      },
+      {
+        "source": "wayback-unops",
+        "primary_count": 103,
+        "comparator_count": 42,
+        "ratio": 2.45
+      },
+      {
+        "source": "who",
+        "primary_count": 20,
+        "comparator_count": 91,
+        "ratio": 4.55
+      },
+      {
+        "source": "wipo",
+        "primary_count": 19,
+        "comparator_count": 59,
+        "ratio": 3.11
+      }
+    ]
+  },
+  "warnings": []
+}
