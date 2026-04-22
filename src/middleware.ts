@@ -1,17 +1,16 @@
 /**
- * Cognito-gated middleware. Everything except /login, /api/cron/*, and
- * /api/auth/* requires a valid Cognito ID token cookie.
+ * Cognito-gated middleware. Everything except /login and /api/auth/*
+ * requires a valid Cognito ID token cookie.
  *
- * v0.1 prototype scope: checks cookie presence + JWT exp. Full JWKS signature
- * verification deferred to Phase 2 — acceptable for a prototype behind a
- * private Cognito pool with no general public.
+ * Prototype scope: checks cookie presence + JWT exp. Full JWKS signature
+ * verification deferred — acceptable for a prototype behind a private
+ * Cognito pool.
  */
 import { NextResponse, type NextRequest } from "next/server";
 
 const COOKIE_NAME = "unwi_id_token";
 const OPEN_PATHS = [
   "/login",
-  "/api/cron", // cron endpoints protected by x-cron-secret, not session
   "/api/auth",
   "/_next",
   "/favicon",

@@ -14,16 +14,18 @@ const config: Config = {
     },
     extend: {
       colors: {
-        // UN blue per brand spec
-        "un-blue": "#009EDB",
-        "un-blue-dark": "#007AA3",
-        ink: "#1a1f2e",
-        muted: "#64748b",
-        "muted-soft": "#f1f5f9",
+        navy: "#0F2540",
+        "navy-soft": "#1c3a63",
+        teal: "#4DAFA8",
+        "teal-soft": "#7dc6c0",
+        slate: "#5A6C7D",
+        ink: "#0F2540",
+        muted: "#5A6C7D",
+        "muted-soft": "#F5F7F8",
         "panel-line": "#e5e7eb",
+        "takeaway-bg": "#F5F7F8",
       },
       fontFamily: {
-        // Serif for headings, sans for body. Loaded via next/font in layout.tsx.
         serif: ["var(--font-serif)", "Georgia", "serif"],
         sans: ["var(--font-sans)", "system-ui", "sans-serif"],
       },

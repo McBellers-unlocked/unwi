@@ -1,26 +1,22 @@
 # AWS Amplify build + deploy config.
 #
-# The scheduled job below hits /api/cron/snapshot at 02:00 UTC daily with the
-# x-cron-secret header. EventBridge + Lambda is an alternative; keeping the
-# trigger definition adjacent to the app means one source-of-truth.
+# The nightly snapshot cron now runs in the classifier Lambda (EventBridge
+# rule defined in infra/template.yaml). Amplify only builds and serves the
+# Next.js reader app.
 
 version: 1
 frontend:
   phases:
     preBuild:
       commands:
-        - npm ci
+        - npm ci --legacy-peer-deps
     build:
       commands:
         # Amplify Gen 1 exposes env vars to the BUILD shell but not reliably
-        # to the Next.js SSR Lambda. Baking them into .env.production forces
-        # Next.js to pick them up at build time and keep them accessible to
-        # server-side code. Only whitelist the vars we actually need to avoid
-        # leaking Amplify internals into the bundle.
-        - env | grep -E "^(CRON_SECRET|COGNITO_|DATABASE_URL|SUPABASE_|USD_|YTD_)=" > .env.production
-        # Note: no db:generate. Schema is applied via infra/scripts/init-db.sh
-        # (drizzle-kit push) out-of-band; regenerating migrations on every
-        # Amplify build would churn the migrations/ folder without effect.
+        # to the Next.js SSR Lambda. Bake them into .env.production so
+        # server-side code picks them up at build time. Only whitelist the
+        # vars we actually need.
+        - env | grep -E "^(COGNITO_|DATABASE_URL)=" > .env.production
         - npm run build
   artifacts:
     baseDirectory: .next
@@ -30,12 +26,6 @@ frontend:
     paths:
       - node_modules/**/*
       - .next/cache/**/*
-
-# Requires manual setup in the Amplify console OR via CLI.
-# cron: "0 2 * * ? *"  (AWS Schedule expression for daily 02:00 UTC)
-# target: /api/cron/snapshot  with header x-cron-secret: $CRON_SECRET
-#
-# See README.md → "Nightly cron" for the exact Amplify/EventBridge steps.
 
 env:
   variables:
