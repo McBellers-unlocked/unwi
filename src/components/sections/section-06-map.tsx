@@ -89,48 +89,103 @@ function Tooltip({ point }: { point: Point | null }) {
   );
 }
 
+// Manual label offsets for European cities that cluster too tightly at the
+// detail-map scale. dx/dy are in SVG pixels from the bubble centre; anchor
+// controls text alignment so labels push away from the bubble cleanly.
+// Each entry also gets a thin leader line from the bubble edge to the label.
+const LABEL_OFFSETS: Record<
+  string,
+  { dx: number; dy: number; anchor: "start" | "end" | "middle" }
+> = {
+  brussels:   { dx:  18, dy:  -6, anchor: "start" },
+  "the hague":{ dx: -20, dy: -10, anchor: "end"   },
+  amsterdam:  { dx:  18, dy: -14, anchor: "start" },
+  paris:      { dx: -20, dy:  10, anchor: "end"   },
+  geneva:     { dx: -20, dy:   0, anchor: "end"   },
+  rome:       { dx:  18, dy:   4, anchor: "start" },
+  vienna:     { dx:  18, dy:  -6, anchor: "start" },
+  copenhagen: { dx:  18, dy:  -6, anchor: "start" },
+  london:     { dx: -20, dy:  -6, anchor: "end"   },
+  madrid:     { dx: -20, dy:   4, anchor: "end"   },
+};
+
+function labelPlacement(name: string, radius: number) {
+  const key = name.toLowerCase();
+  const off = LABEL_OFFSETS[key];
+  if (off) return off;
+  // Default: sit just to the right of the bubble.
+  return { dx: radius + 4, dy: 4, anchor: "start" as const };
+}
+
 function Bubbles({
   points,
   maxCount,
   onHover,
   showLabels,
+  region,
 }: {
   points: Point[];
   maxCount: number;
   onHover: (p: Point | null) => void;
   showLabels: boolean;
+  region: "global" | "europe";
 }) {
   return (
     <>
-      {points.map((p) => (
-        <Marker key={p.name} coordinates={[p.lng, p.lat]}>
-          <circle
-            r={bubbleRadius(p.count, maxCount)}
-            fill={tealScale(p.orgs)}
-            fillOpacity={0.75}
-            stroke="#0F2540"
-            strokeWidth={0.8}
-            onMouseEnter={() => onHover(p)}
-            onMouseLeave={() => onHover(null)}
-          >
-            <title>{`${p.name}: ${p.count} roles, ${p.orgs} orgs`}</title>
-          </circle>
-          {showLabels && p.rank <= 8 && (
-            <text
-              x={bubbleRadius(p.count, maxCount) + 4}
-              y={4}
-              style={{
-                fontFamily: "var(--font-sans), system-ui",
-                fontSize: 10,
-                fill: "#0F2540",
-                pointerEvents: "none",
-              }}
+      {points.map((p) => {
+        const r = bubbleRadius(p.count, maxCount);
+        const place = region === "europe"
+          ? labelPlacement(p.name, r)
+          : { dx: r + 4, dy: 4, anchor: "start" as const };
+        const hasLeader =
+          region === "europe" && LABEL_OFFSETS[p.name.toLowerCase()] !== undefined;
+        return (
+          <Marker key={p.name} coordinates={[p.lng, p.lat]}>
+            {hasLeader && (
+              <line
+                x1={0}
+                y1={0}
+                x2={place.dx}
+                y2={place.dy}
+                stroke="#0F2540"
+                strokeOpacity={0.35}
+                strokeWidth={0.5}
+                pointerEvents="none"
+              />
+            )}
+            <circle
+              r={r}
+              fill={tealScale(p.orgs)}
+              fillOpacity={0.75}
+              stroke="#0F2540"
+              strokeWidth={0.8}
+              onMouseEnter={() => onHover(p)}
+              onMouseLeave={() => onHover(null)}
             >
-              {p.name} · {p.count}
-            </text>
-          )}
-        </Marker>
-      ))}
+              <title>{`${p.name}: ${p.count} roles, ${p.orgs} orgs`}</title>
+            </circle>
+            {showLabels && p.rank <= 8 && (
+              <text
+                x={place.dx}
+                y={place.dy}
+                textAnchor={place.anchor}
+                style={{
+                  fontFamily: "var(--font-sans), system-ui",
+                  fontSize: 10,
+                  fill: "#0F2540",
+                  pointerEvents: "none",
+                  paintOrder: "stroke",
+                  stroke: "#ffffff",
+                  strokeWidth: 2.5,
+                  strokeLinejoin: "round",
+                }}
+              >
+                {p.name} · {p.count}
+              </text>
+            )}
+          </Marker>
+        );
+      })}
     </>
   );
 }
@@ -227,6 +282,7 @@ export function DutyStationMaps({
               maxCount={maxCount}
               onHover={setHover}
               showLabels
+              region="global"
             />
           </ComposableMap>
         </div>
@@ -259,6 +315,7 @@ export function DutyStationMaps({
               maxCount={maxCount}
               onHover={setHover}
               showLabels
+              region="europe"
             />
           </ComposableMap>
         </div>

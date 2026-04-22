@@ -46,6 +46,21 @@ export async function Section01Cover() {
 
   const geneva = geo.find((g) => g.locationOrCountry.toLowerCase().includes("geneva"));
 
+  // The classifier writes segment_counts as a dict (segment -> count), not the
+  // typed `segments[]` array the schema declares. Derive the largest segment
+  // directly from the dict until the classifier catches up to the schema.
+  const segmentCounts = (headline as unknown as {
+    segment_counts?: Record<string, number>;
+  })?.segment_counts ?? {};
+  const largest = Object.entries(segmentCounts)
+    .sort(([, a], [, b]) => b - a)[0];
+  const largestSegmentCode = largest?.[0];
+  const largestSegmentCount = largest?.[1] ?? 0;
+  const largestSegmentLabel = largestSegmentCode
+    ? SEGMENT_LABELS[largestSegmentCode as keyof typeof SEGMENT_LABELS] ??
+      largestSegmentCode
+    : "—";
+
   return (
     <SectionShell
       id="section-1"
@@ -67,14 +82,8 @@ export async function Section01Cover() {
         <StatTile label="Digital segments" value="9" sub="Locked taxonomy" />
         <StatTile
           label="Largest segment"
-          value={
-            headline?.segments?.[0]?.segment
-              ? SEGMENT_LABELS[
-                  headline.segments[0].segment as keyof typeof SEGMENT_LABELS
-                ] ?? headline.segments[0].segment
-              : "—"
-          }
-          sub={`${headline?.segments?.[0]?.count ?? 0} roles`}
+          value={largestSegmentLabel}
+          sub={`${fmt(largestSegmentCount)} roles`}
         />
         <StatTile
           label="Peak concurrent hiring"

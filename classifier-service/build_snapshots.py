@@ -25,6 +25,12 @@ import hashlib
 import io
 import json
 import re
+import sys
+
+# UN aggregator job descriptions occasionally exceed Python's default per-field
+# CSV limit (131072 bytes). Lift the cap — the rows still fit comfortably in
+# Lambda memory.
+csv.field_size_limit(min(sys.maxsize, 2**31 - 1))
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import date, datetime

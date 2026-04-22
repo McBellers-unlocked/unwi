@@ -4,7 +4,17 @@ import { getCutManifest } from "@/lib/data";
 export async function Section09Methodology() {
   const manifest = await getCutManifest();
   const sources = manifest?.apples_to_apples?.common_sources ?? [];
-  const sha = manifest?.classifier_version_sha ?? "unknown";
+  // classifier_version_sha was the schema-declared field; the current Lambda
+  // writes classifier_version.file_sha1 instead. Accept either until the
+  // writer catches up to the typed shape.
+  const m = manifest as unknown as {
+    classifier_version_sha?: string;
+    classifier_version?: { file_sha1?: string };
+  };
+  const sha =
+    m?.classifier_version_sha ??
+    m?.classifier_version?.file_sha1 ??
+    "unknown";
   const shaShort = sha.slice(0, 12);
 
   return (
