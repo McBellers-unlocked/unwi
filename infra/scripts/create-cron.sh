@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
-# Wire EventBridge Scheduler to POST /api/cron/snapshot nightly at 02:00 UTC.
+# Wire EventBridge Rules to POST /api/cron/snapshot nightly at 02:00 UTC.
 #
 # Deferred from the main CloudFormation stack because it needs the Amplify
 # production URL, which only exists after the manual app-connection step.
+#
+# Uses classic EventBridge Rules + API destination (not the newer Scheduler
+# service) — Scheduler's target validation doesn't accept API destination
+# ARNs cleanly as of 2026-04, while Rules have supported this pattern since
+# 2022.
 #
 # Usage:
 #   ./infra/scripts/create-cron.sh https://your-app.amplifyapp.com
@@ -19,8 +24,8 @@ REGION="${AWS_REGION:-eu-west-1}"
 
 CONNECTION_NAME="unwi-cron-connection"
 DESTINATION_NAME="unwi-cron-destination"
-SCHEDULE_NAME="unwi-nightly-snapshot"
-ROLE_NAME="unwi-scheduler-role"
+RULE_NAME="unwi-nightly-snapshot"
+ROLE_NAME="unwi-cron-role"
 CRON_SECRET_ID="unwi/cron-secret"
 
 echo "Reading cron secret from Secrets Manager..."
@@ -93,9 +98,9 @@ DESTINATION_ARN=$(aws events describe-api-destination --name "$DESTINATION_NAME"
   --profile "$PROFILE" --region "$REGION")
 echo "  destination: $DESTINATION_ARN"
 
-# --- 3. IAM role for Scheduler ------------------------------------
-echo "Ensuring IAM role for Scheduler..."
-TRUST_POLICY='{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"scheduler.amazonaws.com"},"Action":"sts:AssumeRole"}]}'
+# --- 3. IAM role for EventBridge ----------------------------------
+echo "Ensuring IAM role for EventBridge Rule..."
+TRUST_POLICY='{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"events.amazonaws.com"},"Action":"sts:AssumeRole"}]}'
 
 if ! aws iam get-role --role-name "$ROLE_NAME" --profile "$PROFILE" >/dev/null 2>&1; then
   aws iam create-role \
@@ -126,38 +131,25 @@ ROLE_ARN=$(aws iam get-role --role-name "$ROLE_NAME" \
   --query Role.Arn --output text --profile "$PROFILE")
 echo "  role: $ROLE_ARN"
 
-# --- 4. Schedule --------------------------------------------------
-echo "Creating/updating Scheduler schedule..."
-TARGET_JSON=$(python -c "
-import json, sys
-print(json.dumps({'Arn': sys.argv[1], 'RoleArn': sys.argv[2]}))
-" "$DESTINATION_ARN" "$ROLE_ARN")
+# --- 4. Rule + target --------------------------------------------
+echo "Creating/updating EventBridge rule..."
+sleep 5  # IAM role propagation
 
-# Allow IAM role propagation (Scheduler validates PassRole on create).
-sleep 10
+aws events put-rule \
+  --name "$RULE_NAME" \
+  --schedule-expression "cron(0 2 * * ? *)" \
+  --state ENABLED \
+  --description "UNWI nightly aggregator snapshot" \
+  --profile "$PROFILE" --region "$REGION" >/dev/null
 
-if aws scheduler get-schedule --name "$SCHEDULE_NAME" \
-     --profile "$PROFILE" --region "$REGION" >/dev/null 2>&1; then
-  aws scheduler update-schedule \
-    --name "$SCHEDULE_NAME" \
-    --schedule-expression "cron(0 2 * * ? *)" \
-    --schedule-expression-timezone "UTC" \
-    --flexible-time-window '{"Mode":"OFF"}' \
-    --target "$TARGET_JSON" \
-    --profile "$PROFILE" --region "$REGION" >/dev/null
-else
-  aws scheduler create-schedule \
-    --name "$SCHEDULE_NAME" \
-    --schedule-expression "cron(0 2 * * ? *)" \
-    --schedule-expression-timezone "UTC" \
-    --flexible-time-window '{"Mode":"OFF"}' \
-    --target "$TARGET_JSON" \
-    --profile "$PROFILE" --region "$REGION" >/dev/null
-fi
+aws events put-targets \
+  --rule "$RULE_NAME" \
+  --targets "Id=1,Arn=$DESTINATION_ARN,RoleArn=$ROLE_ARN" \
+  --profile "$PROFILE" --region "$REGION" >/dev/null
 
 echo
 echo "Cron wired."
-echo "  Schedule: $SCHEDULE_NAME"
+echo "  Rule:     $RULE_NAME"
 echo "  Cron:     02:00 UTC daily"
 echo "  Target:   POST ${APP_URL}/api/cron/snapshot"
 echo "  Auth:     header x-cron-secret from Secrets Manager ($CRON_SECRET_ID)"
