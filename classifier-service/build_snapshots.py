@@ -441,16 +441,31 @@ def build_comparator_segment_shares(
 
 
 def build_concurrency_timeseries(
-    rows: list[Row], from_month: str = "2025-08"
+    rows: list[Row],
+    primary: tuple[date, date] = PRIMARY_PERIOD,
+    from_month: str = "2025-08",
 ) -> bytes:
+    """Distinct-organisation concurrency per segment per month.
+
+    Drops partial months past the primary period end so trailing months (e.g.
+    2026-04 when the primary period closes 2026-03-31) don't bias peaks.
+    """
+    from calendar import monthrange
+
     from_year, from_mon = map(int, from_month.split("-"))
     start = date(from_year, from_mon, 1)
+    primary_end = primary[1]
+
+    def month_end(y: int, m: int) -> date:
+        return date(y, m, monthrange(y, m)[1])
 
     by_seg_month: dict[str, dict[str, set[str]]] = defaultdict(
         lambda: defaultdict(set)
     )
     for r in rows:
         if not r.segment or not r.posted_date or r.posted_date < start:
+            continue
+        if month_end(r.posted_date.year, r.posted_date.month) > primary_end:
             continue
         key = f"{r.posted_date.year:04d}-{r.posted_date.month:02d}"
         by_seg_month[r.segment][key].add(r.organization)
@@ -505,10 +520,19 @@ def build_qoq_change(
 
 
 def _normalize_title(t: str) -> str:
+    """Canonicalise titles for collision detection.
+
+    Keeps role nouns ("Analyst", "Officer", "Scientist") — they are signal, not
+    noise. Strips only: location suffix after a comma, bracket punctuation, and
+    UN grade-code tokens (P-1..P-5, D-1..D-2, G-1..G-7).
+    """
     t = t.lower()
+    if "," in t:
+        t = t.split(",", 1)[0]
     t = re.sub(r"[\(\)\[\]]", " ", t)
     t = re.sub(r"[^a-z0-9\s\-\/]", " ", t)
-    t = re.sub(r"\b(p|g|d|noa|nob|noc|nod|l|ica|consultant|intern|senior|junior|lead|chief|head|officer|specialist|analyst|assistant|associate|manager|expert)\s*[-\d]*\b", " ", t)
+    t = re.sub(r"\b[pd]\s*-?\s*[1-5]\b", " ", t)
+    t = re.sub(r"\bg\s*-?\s*[1-7]\b", " ", t)
     t = re.sub(r"\s+", " ", t).strip()
     return t
 
@@ -664,7 +688,7 @@ def build_all(
         "comparator_segment_shares.csv": build_comparator_segment_shares(
             rows, primary, comparator
         ),
-        "concurrency_timeseries.json": build_concurrency_timeseries(rows),
+        "concurrency_timeseries.json": build_concurrency_timeseries(rows, primary),
         "qoq_change.json": build_qoq_change(rows, primary, comparator),
         "collision_profiles.json": build_collision_profiles(rows, primary),
         "staff_vs_consultant.json": build_staff_vs_consultant(rows, primary),

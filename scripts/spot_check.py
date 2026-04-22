@@ -271,6 +271,41 @@ def check_grades(tee: Tee, artefacts: dict[str, bytes]) -> None:
         tee.write(f"{seg:18}{cells}{total:>8}")
 
 
+def check_policy_advisory_sample(tee: Tee) -> None:
+    section(tee, 8, "POLICY_ADVISORY sample (20 random rows, diagnostic)")
+    tee.write(
+        "Purpose: eyeball whether these are legitimately digital-policy / "
+        "AI-governance roles or whether generic 'Policy Officer' roles are "
+        "bleeding in. Classifier is locked — do not modify."
+    )
+    tee.write("")
+
+    import csv
+    import random
+
+    rows: list[dict[str, str]] = []
+    with REFERENCE_CSV.open("r", encoding="utf-8", newline="") as f:
+        reader = csv.DictReader(f)
+        for r in reader:
+            if (r.get("segment") or "").strip() == "POLICY_ADVISORY":
+                rows.append(r)
+
+    tee.write(f"Total POLICY_ADVISORY rows in reference CSV: {len(rows)}")
+    tee.write("")
+
+    rng = random.Random(42)
+    sample = rng.sample(rows, min(20, len(rows)))
+    sample.sort(key=lambda r: r["organization"])
+
+    tee.write(f"{'#':>3}  {'TITLE':55} {'ORGANISATION':40} REASON")
+    tee.write("-" * 140)
+    for i, r in enumerate(sample, 1):
+        title = (r["title"] or "")[:55]
+        org = (r["organization"] or "")[:40]
+        reason = r["reason"] or ""
+        tee.write(f"{i:>3}  {title:55} {org:40} {reason}")
+
+
 def check_cut_manifest(tee: Tee, artefacts: dict[str, bytes]) -> None:
     section(tee, 7, "CUT MANIFEST (live-run)")
     tee.write("Deck reference values:")
@@ -316,6 +351,7 @@ def main() -> int:
     check_geography(tee, artefacts)
     check_grades(tee, artefacts)
     check_cut_manifest(tee, artefacts)
+    check_policy_advisory_sample(tee)
     tee.dump(OUT_PATH)
     print(f"\nspot_check_output.txt written ({len(tee.lines)} lines)")
     return 0

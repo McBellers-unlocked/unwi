@@ -16,14 +16,13 @@ Deck reference (for eyeball):
   Information Management        8
   Knowledge Management          4
 
-"information systems" [ITOPS]: 9 orgs — Convention to Combat Desertification, Department for General Assembly and Conference Management, Department of Economic and Social Affairs, Information Systems Section, Office of Counter-Terrorism, Office of Information and Communications Technology, United Nations Assistance Mission in Afghanistan, United Nations Joint Staff Pension Fund - Pension Administration, United Nations Office at Nairobi
-"data" [DATA_AI]: 6 orgs — NATO, RC Office YEMEN, Resident Coordinator System, UPU - Postal Technology Centre Directorate, United Nations Environment Programme, World Intellectual Property Organization
-"information management" [INFO_KM]: 6 orgs — Department of Operational Support, International Residual Mechanism for Criminal Tribunals, Office for the Coordination of Humanitarian Affairs, Record Management and Quality Control Unit, United Nations Environment Programme, United Nations Joint Staff Pension Fund - Pension Administration
-"data scientist" [DATA_AI]: 4 orgs — United Nations Environment Programme, United Nations Office for Disaster Risk Reduction, World Food Programme (WFP), World Intellectual Property Organization
-"data management" [DATA_AI]: 3 orgs — Resident Coordinator System, UNOPS, United Nations Office for Project Services (UNOPS)
-"it" [ITOPS]: 3 orgs — Economic and Social Commission for Western Asia, European Commission, Food and Agriculture Organization
+"information systems officer" [ITOPS]: 6 orgs — Department for General Assembly and Conference Management, Department of Economic and Social Affairs, Office of Counter-Terrorism, United Nations Assistance Mission in Afghanistan, United Nations Conference on Trade and Development, United Nations Office at Nairobi
+"data analyst" [DATA_AI]: 4 orgs — NATO, Resident Coordinator System, United Nations Environment Programme, World Intellectual Property Organization
+"data scientist" [DATA_AI]: 3 orgs — United Nations Environment Programme, United Nations Office for Disaster Risk Reduction, World Food Programme (WFP)
+"information management assistant" [INFO_KM]: 3 orgs — Record Management and Quality Control Unit, United Nations Environment Programme, United Nations Joint Staff Pension Fund - Pension Administration
+"information systems assistant" [ITOPS]: 3 orgs — Convention to Combat Desertification, International Trade Centre, United Nations Joint Staff Pension Fund - Pension Administration
 
-Total collision profiles (≥3 orgs): 6
+Total collision profiles (≥3 orgs): 5
 
 ==============================================================================
 2. CONCURRENCY TIMESERIES (peak month per segment)
@@ -33,14 +32,14 @@ Deck reference (for eyeball):
   DATA_AI peak 12 orgs (month per deck slide 7)
 
 CYBER           peak  10 orgs in 2026-03
-DATA_AI         peak  27 orgs in 2026-04
+DATA_AI         peak  22 orgs in 2026-02
 SOFTWARE        peak  10 orgs in 2026-03
-CLOUD           peak   9 orgs in 2026-04
+CLOUD           peak   5 orgs in 2025-10
 ENTERPRISE      peak   4 orgs in 2026-03
-INFO_KM         peak  19 orgs in 2026-04
-PRODUCT         peak  11 orgs in 2026-04
-POLICY_ADVISORY peak  14 orgs in 2026-04
-ITOPS           peak  25 orgs in 2026-04
+INFO_KM         peak  10 orgs in 2026-03
+PRODUCT         peak  10 orgs in 2025-12
+POLICY_ADVISORY peak   8 orgs in 2026-01
+ITOPS           peak  21 orgs in 2026-02
 
 ==============================================================================
 3. QoQ CHANGE (per segment)
@@ -148,3 +147,33 @@ source_ratio_warnings (8 entries):
   wayback-unops                       primary=   103  comparator=    42  ratio=2.45
   who                                 primary=    20  comparator=    91  ratio=4.55
   wipo                                primary=    19  comparator=    59  ratio=3.11
+
+==============================================================================
+8. POLICY_ADVISORY sample (20 random rows, diagnostic)
+==============================================================================
+Purpose: eyeball whether these are legitimately digital-policy / AI-governance roles or whether generic 'Policy Officer' roles are bleeding in. Classifier is locked — do not modify.
+
+Total POLICY_ADVISORY rows in reference CSV: 104
+
+  #  TITLE                                                   ORGANISATION                             REASON
+--------------------------------------------------------------------------------------------------------------------------------------------
+  1  Digital inclusion policy analysis for Latin America and Economic Commission for Latin America an title-strong:digital (inclusion|cooperation|public goods)(?!.*(engineer|a
+  2  ICT and Development Individual Contractor               Economic and Social Commission for Asia  title-strong:ict and development|ict for development
+  3  Information Society (Digital Development) Sudan Expert  Economic and Social Commission for Weste title-strong:digital (development|economy|economies|trade|customs|ecosyst
+  4  A National Expert in Information Society (Digital Devel Economic and Social Commission for Weste title-strong:digital (development|economy|economies|trade|customs|ecosyst
+  5  A National Expert in Information Society (Digital Devel Economic and Social Commission for Weste title-strong:digital (development|economy|economies|trade|customs|ecosyst
+  6  Programme Management Officer (Head of the AI Governance Office of the Secretary-Generals Envoy o title-strong:(ai|a\.i\.|artificial intelligence)\s*(?:\(ai\)\s*)?(governa
+  7  NATIONAL CONSULTANT TO CONDUCT A DIGITAL READINESS ASSE Technology Bank for the Least Developed  title-strong:digital (development|economy|economies|trade|customs|ecosyst
+  8  INTERNATIONAL CONSULTANT TO CONDUCT A DIGITAL READINESS Technology Bank for the Least Developed  title-strong:digital (development|economy|economies|trade|customs|ecosyst
+  9  National Digital Health Consultant, Phnom Penh, Cambodi UNICEF                                   title-strong:digital health (advisor|adviser|consultant|policy|governance
+ 10  Information Communication Technology Assistant (T4D), G UNICEF                                   title-strong:\bt4d\b(?!.*(engineer|developer|platform;precedence-over:ITOPS
+ 11  Digital Impact Specialist, (Technology for Development) UNICEF                                   title-strong:technology for development;precedence-over:ITOPS
+ 12  Consultancy Gbv Technology Product Deployment Consultan UNICEF                                   title-strong:(gbv|child protection|rights) technology
+ 13  GenU Digital Strategy & ICT Consultant, Programme Group UNICEF                                   title-strong:digital (society|strategy|strategic)(?!.;precedence-over:ITOPS
+ 14  Oky Technology Advisory Consultant, DID, DCOE, Valencia UNICEF                                   title-strong:technology (advisor|adviser|advisory|consultant|expert)
+ 15  Individual Consultant: Adolescents and Youth Innovation UNICEF                                   title-strong:\binnovation (officer|specialist|manager|lead|consultant|adv
+ 16  Youth Innovation Consultant, GenU, Programme Group, NYH UNICEF                                   title-strong:\binnovation (officer|specialist|manager|lead|consultant|adv
+ 17  Digital Customs Consultant                              United Nations Conference on Trade and D title-strong:digital (development|economy|economies|trade|customs|ecosyst
+ 18  Technical Specialist, Technology Localization (Retainer United Nations Office for Project Servic title-strong:technology localization
+ 19  Associate Technology Innovation Officer                 World Bank Group                         title-strong:\binnovation (officer|specialist|manager|lead|consultant|adv
+ 20  Consultant - Digital Health and AI Advisor, Philippines World Health Organization                title-strong:digital health (and ai|& ai|and a\.i\.)\s*(advisor|adviser|c
