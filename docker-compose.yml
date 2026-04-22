@@ -23,5 +23,15 @@ services:
       timeout: 5s
       retries: 10
 
+  classifier:
+    build: ./classifier-service
+    container_name: unwi-classifier
+    volumes:
+      - ./classifier-service:/var/task
+    environment:
+      AWS_LAMBDA_RUNTIME_API: ""
+    entrypoint: []
+    command: ["python", "-c", "from handler import lambda_handler; lambda_handler({'dry_run': True}, None)"]
+
 volumes:
   unwi-pgdata:
