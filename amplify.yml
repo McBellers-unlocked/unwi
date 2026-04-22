@@ -12,7 +12,9 @@ frontend:
         - npm ci
     build:
       commands:
-        - npm run db:generate
+        # Note: no db:generate. Schema is applied via infra/scripts/init-db.sh
+        # (drizzle-kit push) out-of-band; regenerating migrations on every
+        # Amplify build would churn the migrations/ folder without effect.
         - npm run build
   artifacts:
     baseDirectory: .next
