@@ -1,0 +1,60 @@
+{
+  "period_from": "2026-01-01",
+  "period_to": "2026-03-31",
+  "total_postings": 5962,
+  "digital_postings": 450,
+  "digital_share_pct": 7.55,
+  "segment_counts": {
+    "CYBER": 44,
+    "DATA_AI": 108,
+    "SOFTWARE": 22,
+    "CLOUD": 20,
+    "ENTERPRISE": 7,
+    "INFO_KM": 37,
+    "PRODUCT": 19,
+    "POLICY_ADVISORY": 45,
+    "ITOPS": 148
+  },
+  "segment_shares_pct": {
+    "CYBER": 9.78,
+    "DATA_AI": 24.0,
+    "SOFTWARE": 4.89,
+    "CLOUD": 4.44,
+    "ENTERPRISE": 1.56,
+    "INFO_KM": 8.22,
+    "PRODUCT": 4.22,
+    "POLICY_ADVISORY": 10.0,
+    "ITOPS": 32.89
+  },
+  "organisations_represented": 73,
+  "comparator_period": {
+    "from": "2025-10-01",
+    "to": "2025-12-31"
+  },
+  "comparator_total_postings": 4467,
+  "comparator_digital_postings": 318,
+  "comparator_digital_share_pct": 7.12,
+  "primary_shares_pct_apples_to_apples": {
+    "CYBER": 9.89,
+    "DATA_AI": 24.04,
+    "SOFTWARE": 4.72,
+    "CLOUD": 3.82,
+    "ENTERPRISE": 1.57,
+    "INFO_KM": 8.31,
+    "PRODUCT": 4.27,
+    "POLICY_ADVISORY": 10.11,
+    "ITOPS": 33.26
+  },
+  "comparator_shares_pct": {
+    "CYBER": 7.35,
+    "DATA_AI": 30.99,
+    "SOFTWARE": 5.43,
+    "CLOUD": 5.11,
+    "ENTERPRISE": 1.28,
+    "INFO_KM": 6.39,
+    "PRODUCT": 7.67,
+    "POLICY_ADVISORY": 8.95,
+    "ITOPS": 26.84
+  },
+  "composition_stable": false
+}
