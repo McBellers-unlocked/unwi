@@ -40,6 +40,7 @@ aws ecr get-login-password --region "$REGION" --profile "$PROFILE" \
 
 docker build \
   --platform linux/amd64 \
+  --provenance=false \
   -t "$REPO_URI:$TAG" \
   -t "$REPO_URI:latest" \
   "$ROOT/classifier-service"
