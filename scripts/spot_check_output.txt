@@ -1,0 +1,179 @@
+UNWI spot-check
+==============================================================================
+Input CSV        : classifier-service/reference/classified_v2_full_reference.csv
+Primary period   : 2026-01-01 → 2026-03-31
+Comparator period: 2025-10-01 → 2025-12-31
+Classifier SHA-1 : 7f702e1d76597307ede1676a71c250b11841ed92
+Artefacts present: collision_profiles.json, comparator_segment_shares.csv, concurrency_timeseries.json, cut_manifest.json, headline_numbers.json, organisation_breakdown.csv, qoq_change.json, segment_distribution.csv, source_coverage.csv, staff_vs_consultant.json
+
+==============================================================================
+1. COLLISION PROFILES (top 10 by organisation_count)
+==============================================================================
+Deck reference (for eyeball):
+  Data Analyst                 10
+  Data Scientist                9
+  Information Systems Officer   9
+  Information Management        8
+  Knowledge Management          4
+
+"information systems officer" [ITOPS]: 6 orgs — Department for General Assembly and Conference Management, Department of Economic and Social Affairs, Office of Counter-Terrorism, United Nations Assistance Mission in Afghanistan, United Nations Conference on Trade and Development, United Nations Office at Nairobi
+"data analyst" [DATA_AI]: 4 orgs — NATO, Resident Coordinator System, United Nations Environment Programme, World Intellectual Property Organization
+"data scientist" [DATA_AI]: 3 orgs — United Nations Environment Programme, United Nations Office for Disaster Risk Reduction, World Food Programme (WFP)
+"information management assistant" [INFO_KM]: 3 orgs — Record Management and Quality Control Unit, United Nations Environment Programme, United Nations Joint Staff Pension Fund - Pension Administration
+"information systems assistant" [ITOPS]: 3 orgs — Convention to Combat Desertification, International Trade Centre, United Nations Joint Staff Pension Fund - Pension Administration
+
+Total collision profiles (≥3 orgs): 5
+
+==============================================================================
+2. CONCURRENCY TIMESERIES (peak month per segment)
+==============================================================================
+Deck reference (for eyeball):
+  ITOPS   peak 14 orgs in 2026-03
+  DATA_AI peak 12 orgs (month per deck slide 7)
+
+CYBER           peak  10 orgs in 2026-03
+DATA_AI         peak  22 orgs in 2026-02
+SOFTWARE        peak  10 orgs in 2026-03
+CLOUD           peak   5 orgs in 2025-10
+ENTERPRISE      peak   4 orgs in 2026-03
+INFO_KM         peak  10 orgs in 2026-03
+PRODUCT         peak  10 orgs in 2025-12
+POLICY_ADVISORY peak   8 orgs in 2026-01
+ITOPS           peak  21 orgs in 2026-02
+
+==============================================================================
+3. QoQ CHANGE (per segment)
+==============================================================================
+NOTE: the deck uses a 14-way split (e.g. UX/UI, Data Engineering, 
+Data Analytics & BI as separate rows). Our classifier taxonomy is locked 
+at 9 segments. Direct numeric match to deck rows is not expected; the 
+deck's 'IT Service & Operations' ≈ ITOPS, 'Cybersecurity' ≈ CYBER, 
+'Cloud & Infrastructure' ≈ CLOUD, 'Information Management & GIS' ≈ INFO_KM. 
+'Data Analytics & BI', 'Data Science & AI/ML', 'Data Engineering' all 
+roll up into DATA_AI. 'UX/UI', 'Software Engineering' roll into PRODUCT/
+SOFTWARE.
+
+Deck reference (for eyeball, approximate mapping):
+  IT Service & Operations     67 →  113 (+46, +69%)
+  Data Analytics & BI         55 →   49  (-6, -11%)
+  Cybersecurity               20 →   34 (+14, +70%)
+  Information Management GIS  17 →   33 (+16, +94%)
+  Data Science & AI/ML        12 →   22 (+10, +83%)
+  Cloud & Infrastructure       6 →   14  (+8, +133%)
+
+SEGMENT             Q4 2025  Q1 2026    Δ abs      Δ %
+--------------------------------------------------------
+CYBER                    23       44      +21   +91.3%
+DATA_AI                  97      108      +11   +11.3%
+SOFTWARE                 20       22       +2   +10.0%
+CLOUD                    17       20       +3   +17.6%
+ENTERPRISE                4        7       +3   +75.0%
+INFO_KM                  20       37      +17   +85.0%
+PRODUCT                  24       19       -5   -20.8%
+POLICY_ADVISORY          29       45      +16   +55.2%
+ITOPS                    84      148      +64   +76.2%
+
+==============================================================================
+4. STAFF vs CONSULTANT (per segment)
+==============================================================================
+NOTE: 8-col reference CSV has no `level` or `description` column. 
+Consultant detection falls back to title-string heuristics 
+(looks for 'consultant', 'consultancy', 'contractor', 'individual contractor' 
+in the title). Live Lambda path uses `level` from Supabase for higher 
+fidelity; numeric values here will drift once that lands.
+
+Deck reference (for eyeball, different taxonomy split):
+  UX/UI                      10 roles, 80% consultant
+  Software Engineering       45 roles, 53% consultant
+  Data Engineering           13 roles, 46% consultant
+  Data Analytics & BI       137 roles, 39% consultant
+  IT Service & Operations   222 roles,  6% consultant
+  Cybersecurity              67 roles,  9% consultant
+
+SEGMENT              TOTAL   STAFF  CONSULTANT   CONS %
+--------------------------------------------------------
+CYBER                   44      39           5    11.4%
+DATA_AI                108      84          24    22.2%
+SOFTWARE                22      18           4    18.2%
+CLOUD                   20      20           0     0.0%
+ENTERPRISE               7       7           0     0.0%
+INFO_KM                 37      32           5    13.5%
+PRODUCT                 19      16           3    15.8%
+POLICY_ADVISORY         45      28          17    37.8%
+ITOPS                  148     140           8     5.4%
+
+==============================================================================
+5. GEOGRAPHY (top 20)
+==============================================================================
+Deck reference (for eyeball):
+  Brussels    ~75  Geneva     ~49   Nairobi    32
+  New York     47  Valencia    12   Rome        20
+
+NOT PRODUCED from the reference CSV: the 8-col input lacks a `location` column.
+Geography will populate only when the Lambda runs against the enriched CSV from classify_aggregator.fetch_and_classify().
+FOLLOW-UP: re-run this spot-check after the first live Lambda invocation to compare Brussels/Geneva/Nairobi counts against the deck.
+
+==============================================================================
+6. GRADE DISTRIBUTION (pivot: segment × grade-band)
+==============================================================================
+NOT PRODUCED from the reference CSV: the 8-col input lacks a `grade_code` column. Grade bands are parsed from Supabase `level` or from the description `Level : XXX` token.
+FOLLOW-UP: re-run this spot-check after the first live Lambda invocation to sanity-check grade distribution.
+
+==============================================================================
+7. CUT MANIFEST (live-run)
+==============================================================================
+Deck reference values:
+  common_source_count                       19
+  primary_common_sources_total_rows       5918
+  comparator_common_sources_total_rows    4329
+  source_ratio_warnings                 8 entries
+
+classifier_version.file_sha1            : 7f702e1d76597307ede1676a71c250b11841ed92
+period                                   : 2026-01-01 → 2026-03-31
+comparator                               : 2025-10-01 → 2025-12-31
+common_source_count                      : 19
+primary_common_sources_total_rows        : 5918
+comparator_common_sources_total_rows     : 4329
+primary_common_sources_digital_rows      : 445
+comparator_common_sources_digital_rows   : 313
+excluded_sources_primary_only            : ['careers.wmo.int', 'imf.wd5.myworkdayjobs.com', 'job.ifad.org', 'jobs.ilo.org', 'jobs.undp.org', 'jobs.unwomen.org', 'recruit.imo.org', 'worldbankgroup.csod.com', 'wto.wd103.myworkdayjobs.com', 'www.unfpa.org/jobs']
+excluded_sources_comparator_only         : ['unops:webforms']
+source_ratio_warnings (8 entries):
+  adb.org                             primary=   195  comparator=    57  ratio=3.42
+  careers.icao.int                    primary=    91  comparator=     4  ratio=22.75
+  oracle-hcm:CX_1001                  primary=     9  comparator=     1  ratio=9.0
+  unicef:pageup                       primary=  1158  comparator=   558  ratio=2.08
+  vacancies.osce.org                  primary=    12  comparator=     1  ratio=12.0
+  wayback-unops                       primary=   103  comparator=    42  ratio=2.45
+  who                                 primary=    20  comparator=    91  ratio=4.55
+  wipo                                primary=    19  comparator=    59  ratio=3.11
+
+==============================================================================
+8. POLICY_ADVISORY sample (20 random rows, diagnostic)
+==============================================================================
+Purpose: eyeball whether these are legitimately digital-policy / AI-governance roles or whether generic 'Policy Officer' roles are bleeding in. Classifier is locked — do not modify.
+
+Total POLICY_ADVISORY rows in reference CSV: 104
+
+  #  TITLE                                                   ORGANISATION                             REASON
+--------------------------------------------------------------------------------------------------------------------------------------------
+  1  Digital inclusion policy analysis for Latin America and Economic Commission for Latin America an title-strong:digital (inclusion|cooperation|public goods)(?!.*(engineer|a
+  2  ICT and Development Individual Contractor               Economic and Social Commission for Asia  title-strong:ict and development|ict for development
+  3  Information Society (Digital Development) Sudan Expert  Economic and Social Commission for Weste title-strong:digital (development|economy|economies|trade|customs|ecosyst
+  4  A National Expert in Information Society (Digital Devel Economic and Social Commission for Weste title-strong:digital (development|economy|economies|trade|customs|ecosyst
+  5  A National Expert in Information Society (Digital Devel Economic and Social Commission for Weste title-strong:digital (development|economy|economies|trade|customs|ecosyst
+  6  Programme Management Officer (Head of the AI Governance Office of the Secretary-Generals Envoy o title-strong:(ai|a\.i\.|artificial intelligence)\s*(?:\(ai\)\s*)?(governa
+  7  NATIONAL CONSULTANT TO CONDUCT A DIGITAL READINESS ASSE Technology Bank for the Least Developed  title-strong:digital (development|economy|economies|trade|customs|ecosyst
+  8  INTERNATIONAL CONSULTANT TO CONDUCT A DIGITAL READINESS Technology Bank for the Least Developed  title-strong:digital (development|economy|economies|trade|customs|ecosyst
+  9  National Digital Health Consultant, Phnom Penh, Cambodi UNICEF                                   title-strong:digital health (advisor|adviser|consultant|policy|governance
+ 10  Information Communication Technology Assistant (T4D), G UNICEF                                   title-strong:\bt4d\b(?!.*(engineer|developer|platform;precedence-over:ITOPS
+ 11  Digital Impact Specialist, (Technology for Development) UNICEF                                   title-strong:technology for development;precedence-over:ITOPS
+ 12  Consultancy Gbv Technology Product Deployment Consultan UNICEF                                   title-strong:(gbv|child protection|rights) technology
+ 13  GenU Digital Strategy & ICT Consultant, Programme Group UNICEF                                   title-strong:digital (society|strategy|strategic)(?!.;precedence-over:ITOPS
+ 14  Oky Technology Advisory Consultant, DID, DCOE, Valencia UNICEF                                   title-strong:technology (advisor|adviser|advisory|consultant|expert)
+ 15  Individual Consultant: Adolescents and Youth Innovation UNICEF                                   title-strong:\binnovation (officer|specialist|manager|lead|consultant|adv
+ 16  Youth Innovation Consultant, GenU, Programme Group, NYH UNICEF                                   title-strong:\binnovation (officer|specialist|manager|lead|consultant|adv
+ 17  Digital Customs Consultant                              United Nations Conference on Trade and D title-strong:digital (development|economy|economies|trade|customs|ecosyst
+ 18  Technical Specialist, Technology Localization (Retainer United Nations Office for Project Servic title-strong:technology localization
+ 19  Associate Technology Innovation Officer                 World Bank Group                         title-strong:\binnovation (officer|specialist|manager|lead|consultant|adv
+ 20  Consultant - Digital Health and AI Advisor, Philippines World Health Organization                title-strong:digital health (and ai|& ai|and a\.i\.)\s*(advisor|adviser|c

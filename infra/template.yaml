@@ -52,8 +52,32 @@ Parameters:
                  this email and a temporary password that you retrieve from
                  the stack outputs.
 
+  ClassifierImageUri:
+    Type: String
+    Default: ""
+    Description: ECR image URI for the Python classifier Lambda. Leave empty
+                 on first stack create (only the ECR repo will be provisioned);
+                 populate once the image has been pushed, then re-deploy to
+                 create the Lambda + EventBridge rule.
+
+  DevIpCidr:
+    Type: String
+    Default: "0.0.0.0/0"
+    Description: Dev / ops CIDR allowed to reach Aurora on 5432. Narrow to
+                 your home IP /32 in production. Default keeps behaviour
+                 backwards-compatible so Amplify SSR (no stable IP range)
+                 can still connect.
+
+  AmplifyCidr:
+    Type: String
+    Default: "0.0.0.0/0"
+    Description: CIDR used by Amplify SSR to reach Aurora. Amplify Gen 1
+                 doesn't publish a stable range; keep 0.0.0.0/0 until Amplify
+                 moves into the VPC, then tighten.
+
 Conditions:
   CreateAdminUser: !Not [!Equals [!Ref AdminEmail, ""]]
+  HasClassifierImage: !Not [!Equals [!Ref ClassifierImageUri, ""]]
 
 Resources:
   # --------------------------------------------------------------------
@@ -94,24 +118,53 @@ Resources:
   # Networking — SG + subnet group
   # --------------------------------------------------------------------
 
+  ClassifierLambdaSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: UNWI classifier Lambda - egress only
+      VpcId: !Ref VpcId
+      Tags:
+        - { Key: Project, Value: !Ref ProjectName }
+        - { Key: Name, Value: !Sub "${ProjectName}-classifier-lambda-sg" }
+
   DBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: UNWI Aurora - ingress for Postgres from Amplify SSR
+      GroupDescription: UNWI Aurora - Postgres ingress for Lambda + dev + Amplify
       VpcId: !Ref VpcId
-      # NOTE: Amplify SSR runs in AWS-managed networking with no stable IP
-      # range. For v0.1 we allow 5432 from anywhere; Aurora's auth is
-      # password-only via Secrets Manager with a 32-char random password.
-      # Tighten once the prototype has a VPC-bound runtime (e.g. ECS).
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 5432
-          ToPort: 5432
-          CidrIp: 0.0.0.0/0
-          Description: Postgres from Amplify + devs (tighten post-v0.1)
       Tags:
         - { Key: Project, Value: !Ref ProjectName }
         - { Key: Name, Value: !Sub "${ProjectName}-aurora-sg" }
+
+  DBSgIngressLambda:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref DBSecurityGroup
+      IpProtocol: tcp
+      FromPort: 5432
+      ToPort: 5432
+      SourceSecurityGroupId: !Ref ClassifierLambdaSG
+      Description: Postgres from classifier Lambda
+
+  DBSgIngressDev:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref DBSecurityGroup
+      IpProtocol: tcp
+      FromPort: 5432
+      ToPort: 5432
+      CidrIp: !Ref DevIpCidr
+      Description: Postgres from dev / ops IP
+
+  DBSgIngressAmplify:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref DBSecurityGroup
+      IpProtocol: tcp
+      FromPort: 5432
+      ToPort: 5432
+      CidrIp: !Ref AmplifyCidr
+      Description: Postgres from Amplify SSR (no stable IP range - tighten when Amplify moves into VPC)
 
   DBSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
@@ -125,6 +178,16 @@ Resources:
   # Aurora Serverless v2 — Postgres
   # --------------------------------------------------------------------
 
+  DBClusterParameterGroup:
+    Type: AWS::RDS::DBClusterParameterGroup
+    Properties:
+      Description: UNWI Aurora cluster parameter group - force SSL
+      Family: aurora-postgresql16
+      Parameters:
+        rds.force_ssl: "1"
+      Tags:
+        - { Key: Project, Value: !Ref ProjectName }
+
   DBCluster:
     Type: AWS::RDS::DBCluster
     DeletionPolicy: Snapshot
@@ -134,6 +197,7 @@ Resources:
       EngineVersion: "16.6"
       DatabaseName: unwi
       DBClusterIdentifier: !Sub "${ProjectName}-aurora"
+      DBClusterParameterGroupName: !Ref DBClusterParameterGroup
       MasterUsername: !Sub "{{resolve:secretsmanager:${DBMasterSecret}:SecretString:username}}"
       MasterUserPassword: !Sub "{{resolve:secretsmanager:${DBMasterSecret}:SecretString:password}}"
       DBSubnetGroupName: !Ref DBSubnetGroup
@@ -238,6 +302,112 @@ Resources:
         - { Name: email, Value: !Ref AdminEmail }
         - { Name: email_verified, Value: "true" }
 
+  # --------------------------------------------------------------------
+  # Classifier service — S3 + ECR + Lambda + nightly EventBridge
+  # --------------------------------------------------------------------
+
+  SnapshotsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${ProjectName}-snapshots-${AWS::AccountId}"
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - { Key: Project, Value: !Ref ProjectName }
+
+  ClassifierRepo:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub "${ProjectName}-classifier"
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      Tags:
+        - { Key: Project, Value: !Ref ProjectName }
+
+  ClassifierLambdaRole:
+    Type: AWS::IAM::Role
+    Condition: HasClassifierImage
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+      Policies:
+        - PolicyName: s3-write
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [s3:PutObject, s3:PutObjectAcl]
+                Resource: !Sub "${SnapshotsBucket.Arn}/*"
+              - Effect: Allow
+                Action: [s3:ListBucket]
+                Resource: !GetAtt SnapshotsBucket.Arn
+        - PolicyName: read-db-secret
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Ref DBMasterSecret
+      Tags:
+        - { Key: Project, Value: !Ref ProjectName }
+
+  ClassifierLambda:
+    Type: AWS::Lambda::Function
+    Condition: HasClassifierImage
+    Properties:
+      FunctionName: !Sub "${ProjectName}-classifier"
+      PackageType: Image
+      Code:
+        ImageUri: !Ref ClassifierImageUri
+      Role: !GetAtt ClassifierLambdaRole.Arn
+      MemorySize: 2048
+      Timeout: 600
+      VpcConfig:
+        SecurityGroupIds: [!Ref ClassifierLambdaSG]
+        SubnetIds: !Ref SubnetIds
+      Environment:
+        Variables:
+          DB_SECRET_ARN: !Ref DBMasterSecret
+          AURORA_HOST: !GetAtt DBCluster.Endpoint.Address
+          AURORA_DB: unwi
+          S3_BUCKET: !Ref SnapshotsBucket
+          S3_PREFIX: snapshots
+      Tags:
+        - { Key: Project, Value: !Ref ProjectName }
+
+  ClassifierNightly:
+    Type: AWS::Events::Rule
+    Condition: HasClassifierImage
+    Properties:
+      Name: !Sub "${ProjectName}-classifier-nightly"
+      Description: UNWI classifier — nightly 02:00 UTC
+      ScheduleExpression: cron(0 2 * * ? *)
+      State: ENABLED
+      Targets:
+        - Id: classifier-lambda
+          Arn: !GetAtt ClassifierLambda.Arn
+
+  ClassifierNightlyPermission:
+    Type: AWS::Lambda::Permission
+    Condition: HasClassifierImage
+    Properties:
+      FunctionName: !GetAtt ClassifierLambda.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt ClassifierNightly.Arn
+
 Outputs:
   # Consumed by Amplify env-vars. Copy these values into the console after
   # `infra/deploy.sh` reports "stack ready".
@@ -285,3 +455,19 @@ Outputs:
   DBSecurityGroupId:
     Description: Security group ID — extend ingress rules here if you tighten CIDRs
     Value: !GetAtt DBSecurityGroup.GroupId
+
+  SnapshotsBucketName:
+    Description: S3 bucket holding classifier artefacts
+    Value: !Ref SnapshotsBucket
+
+  ClassifierRepoUri:
+    Description: ECR repo URI — push the classifier image here
+    Value: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ClassifierRepo}"
+
+  ClassifierLambdaSgId:
+    Description: Security group attached to the classifier Lambda
+    Value: !GetAtt ClassifierLambdaSG.GroupId
+
+  ClassifierLambdaName:
+    Description: Lambda function name (only populated once ClassifierImageUri is set)
+    Value: !If [HasClassifierImage, !Ref ClassifierLambda, "not-yet-deployed"]

@@ -80,6 +80,15 @@ PARAMS=(
 if [[ -n "${ADMIN_EMAIL:-}" ]]; then
   PARAMS+=("AdminEmail=$ADMIN_EMAIL")
 fi
+if [[ -n "${CLASSIFIER_IMAGE_URI:-}" ]]; then
+  PARAMS+=("ClassifierImageUri=$CLASSIFIER_IMAGE_URI")
+fi
+if [[ -n "${DEV_IP_CIDR:-}" ]]; then
+  PARAMS+=("DevIpCidr=$DEV_IP_CIDR")
+fi
+if [[ -n "${AMPLIFY_CIDR:-}" ]]; then
+  PARAMS+=("AmplifyCidr=$AMPLIFY_CIDR")
+fi
 
 aws cloudformation deploy \
   --stack-name "$STACK" \

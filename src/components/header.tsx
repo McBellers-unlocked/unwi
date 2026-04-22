@@ -21,21 +21,23 @@ export function Header({ dataAsOfIso }: { dataAsOfIso: string | null }) {
     <header className="border-b border-panel-line bg-white sticky top-0 z-20">
       <div className="container flex items-center justify-between gap-6 py-4">
         <div>
-          <h1 className="font-serif text-2xl leading-tight tracking-tight">
+          <h1 className="font-serif text-2xl leading-tight tracking-tight text-navy">
             UN Workforce Intelligence
           </h1>
-          <p className="text-xs text-muted mt-0.5">
-            System-level workforce analytics for UN80 and beyond
+          <p className="text-xs text-teal mt-0.5 font-medium uppercase tracking-wider">
+            Q1 2026 Digital Issue
           </p>
         </div>
         <div className="text-right">
           <p className="text-xs uppercase tracking-wide text-muted">
             Data as of
           </p>
-          <p className="text-sm font-medium">{formatDataAsOf(dataAsOfIso)}</p>
+          <p className="text-sm font-medium text-navy">
+            {formatDataAsOf(dataAsOfIso)}
+          </p>
           <Link
             href="/api/auth/logout"
-            className="text-xs text-muted hover:text-un-blue mt-1 inline-block"
+            className="text-xs text-muted hover:text-teal mt-1 inline-block"
           >
             Sign out
           </Link>

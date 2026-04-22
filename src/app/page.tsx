@@ -2,18 +2,17 @@ import { Footer } from "@/components/footer";
 import { Header } from "@/components/header";
 import { Sidebar } from "@/components/sidebar";
 import { EmptyState } from "@/components/empty-state";
-import { SystemPulse } from "@/components/modules/system-pulse";
-import { Decentralisation } from "@/components/modules/decentralisation";
-import { DuplicationRadar } from "@/components/modules/duplication-radar";
-import { SkillsHeatmap } from "@/components/modules/skills-heatmap";
-import { AgencyFingerprint } from "@/components/modules/agency-fingerprint";
-import { DigitalTalent } from "@/components/modules/digital-talent";
-import { ForwardSignal } from "@/components/modules/forward-signal";
-import {
-  getLatestDailySnapshot,
-  getLatestAgencySnapshots,
-  getLatestSuccessfulRunAt,
-} from "@/lib/db/repo";
+import { Section01Cover } from "@/components/sections/section-01-cover";
+import { Section02DemandClusters } from "@/components/sections/section-02-demand-clusters";
+import { Section03QoQChange } from "@/components/sections/section-03-qoq-change";
+import { Section04CollisionProfiles } from "@/components/sections/section-04-collision-profiles";
+import { Section05Concurrency } from "@/components/sections/section-05-concurrency";
+import { Section06Geography } from "@/components/sections/section-06-geography";
+import { Section07StaffVsConsultant } from "@/components/sections/section-07-staff-vs-consultant";
+import { Section08ForwardSignal } from "@/components/sections/section-08-forward-signal";
+import { Section09Methodology } from "@/components/sections/section-09-methodology";
+import { Section10Roadmap } from "@/components/sections/section-10-roadmap";
+import { getSnapshotMeta } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
 
@@ -34,41 +33,38 @@ function formatDataAsOf(iso: string | null): string {
 }
 
 export default async function DashboardPage() {
-  const [snapshot, agencies, runAt] = await Promise.all([
-    getLatestDailySnapshot(),
-    getLatestAgencySnapshots(),
-    getLatestSuccessfulRunAt(),
-  ]);
+  const meta = await getSnapshotMeta();
 
   return (
     <div className="min-h-screen bg-white">
-      <Header dataAsOfIso={runAt} />
+      <Header dataAsOfIso={meta?.computedAt ?? null} />
       <div className="container py-8">
         <div className="flex gap-10">
           <Sidebar />
-          <main className="flex-1 min-w-0">
-            {!snapshot ? (
+          <main className="flex-1 min-w-0 space-y-0">
+            {!meta ? (
               <EmptyState />
             ) : (
               <>
-                <SystemPulse
-                  system={snapshot.rawMetrics.system}
-                  ytdAnchor={
-                    snapshot.rawMetrics.digitalTalent.ytdAnchor ?? "2025-08-01"
-                  }
-                />
-                <Decentralisation data={snapshot.rawMetrics.decentralisation} />
-                <DuplicationRadar data={snapshot.rawMetrics.duplication} />
-                <SkillsHeatmap data={snapshot.rawMetrics.skills} />
-                <AgencyFingerprint agencies={agencies} />
-                <DigitalTalent data={snapshot.rawMetrics.digitalTalent} />
-                <ForwardSignal data={snapshot.rawMetrics.forwardSignal} />
+                <Section01Cover />
+                <Section02DemandClusters />
+                <Section03QoQChange />
+                <Section04CollisionProfiles />
+                <Section05Concurrency />
+                <Section06Geography />
+                <Section07StaffVsConsultant />
+                <Section08ForwardSignal />
+                <Section09Methodology />
+                <Section10Roadmap />
               </>
             )}
           </main>
         </div>
       </div>
-      <Footer dataAsOfText={formatDataAsOf(runAt)} />
+      <Footer
+        dataAsOfText={formatDataAsOf(meta?.computedAt ?? null)}
+        classifierSha={meta?.classifierVersionSha ?? null}
+      />
     </div>
   );
 }

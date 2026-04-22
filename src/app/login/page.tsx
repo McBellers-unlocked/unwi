@@ -23,18 +23,18 @@ export default async function LoginPage({
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-white text-ink">
+    <main className="min-h-screen flex items-center justify-center bg-white text-navy">
       <div className="w-full max-w-md text-center">
-        <h1 className="font-serif text-3xl leading-tight">
+        <h1 className="font-serif text-3xl leading-tight text-navy">
           UN Workforce Intelligence
         </h1>
-        <p className="text-muted mt-2 text-sm">
-          System-level workforce analytics for UN80 and beyond
+        <p className="text-teal mt-2 text-xs uppercase tracking-wider font-medium">
+          Q1 2026 Digital Issue
         </p>
         <div className="mt-10">
           <Link
             href="/login?auto=1"
-            className="inline-flex items-center justify-center h-10 px-5 rounded-md bg-un-blue text-white font-medium hover:bg-un-blue-dark transition-colors"
+            className="inline-flex items-center justify-center h-10 px-5 rounded-md bg-navy text-white font-medium hover:bg-navy-soft transition-colors"
           >
             Sign in
           </Link>
