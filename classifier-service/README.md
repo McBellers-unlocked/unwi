@@ -64,13 +64,34 @@ Dry-run skips S3 + DB writes and dumps all 12 artefacts to `./out/`.
 
 ## Verification
 
+Two test layers:
+
+1. **Aggregation** — `tests/test_reference_outputs.py` runs `build_all()` against
+   the committed 8-col `classified_v2_full_reference.csv` and diffs output
+   byte-for-byte against the reference artefacts for the 5 that depend only on
+   `(id, title, organization, source, segment, confidence, reason, posted_date)`:
+   `headline_numbers.json`, `segment_distribution.csv`,
+   `organisation_breakdown.csv`, `source_coverage.csv`,
+   `comparator_segment_shares.csv`. Plus structural diff of `cut_manifest.json`
+   on stable fields (classifier SHA, periods, common sources) — ignores
+   environmental metadata (`cut_generated_at`, `snapshot_path`).
+
+2. **Classifier precision** — `tests/test_classifier_precision.py` runs
+   `classify()` over every row in `ground_truth_labeled_set.csv`, computes
+   precision per segment, asserts overall ≥ 0.95. Prints per-segment table.
+
+Shape tests in `tests/test_build_snapshots_shapes.py` cover all 12 artefact
+schemas.
+
 ```
-diff <(jq -S . out/headline_numbers.json) \
-     <(jq -S . reference/headline_numbers.json)
-csvdiff out/comparator_segment_shares.csv reference/comparator_segment_shares.csv
+pip install -r requirements-dev.txt
+python -m pytest tests/ -v
 ```
 
-Both must match byte-for-byte before Phase B schema swap lands.
+`geography.csv` and `grade_distribution.csv` need `location` and `grade_code`
+which the 8-col reference CSV doesn't carry; those are tested end-to-end
+when the Lambda runs against live Supabase data (richer CSV via
+`classify_aggregator.fetch_and_classify`).
 
 ## Production deploy
 
