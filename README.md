@@ -1,41 +1,108 @@
-# UN Workforce Intelligence (UNWI) — v0.1 prototype
+# UN Workforce Intelligence (UNWI)
 
 **System-level workforce analytics for UN80 and beyond.** A UNICC prototype.
 
-This is the pitch artefact for positioning UNICC as the workforce intelligence
-backbone of the UN system. Not for external distribution.
+Release: **Q1 2026 Digital Issue**. Domain: `unworkforceintelligence.org`.
+
+Not for external distribution.
+
+## Architecture
+
+```
+Supabase jobs API
+        │
+        ▼
+ classify_aggregator.py  (fetch + paginate)
+        │
+        ▼
+    classifier_v2.py     (locked 9-segment taxonomy, 0.997 precision)
+        │
+        ▼
+  build_snapshots.py     (12 artefacts)
+        │
+        ├──► s3://<bucket>/snapshots/{YYYY-MM-DD}/...
+        ├──► s3://<bucket>/snapshots/latest/...
+        │
+        └──► Aurora Serverless v2   ◄── Next.js (pure reader)
+                                       │
+                                       ▼
+                                    dashboard
+```
+
+- **Python classifier Lambda** is the sole writer — runs nightly 02:00 UTC via
+  EventBridge, produces 12 snapshot artefacts, UPSERTs into Aurora.
+- **Next.js app** is a pure reader — every number on the dashboard comes from
+  Aurora, nothing is computed in TypeScript.
 
 ## Stack
 
-Next.js 15 (App Router, TS strict) · Tailwind + shadcn/ui · Recharts ·
+Next.js 15 (App Router, TS strict) · Tailwind · Recharts ·
 AWS Amplify (hosting) · AWS Cognito (auth, hosted UI) · Aurora Serverless v2
-Postgres · Drizzle ORM over `pg`.
+Postgres · Drizzle ORM over `pg` (reads only) · AWS Lambda + ECR (Python 3.13
+classifier container) · EventBridge (nightly cron) · S3 (artefact history).
 
-## Data model
+## Brand / palette
+
+Primary navy `#0F2540`, accent teal `#4DAFA8`, muted slate `#5A6C7D`,
+takeaway background `#F5F7F8`. Source Serif 4 for headings, Inter for body.
+
+## Repo layout
 
 ```
-Supabase jobs-api  →  cron job (02:00 UTC daily)  →  compute findings  →  Aurora snapshot tables  →  dashboard
-                     ^                                                    ^
-                     x-cron-secret protected                              daily_snapshots / agency_snapshots / skill_cluster_snapshots
+classifier-service/       Python Lambda container image
+  classifier_v2.py        LOCKED regex classifier (DO NOT EDIT)
+  classify_aggregator.py  Supabase fetch + classify → rich CSV
+  build_snapshots.py      12 artefacts from classified CSV
+  handler.py              Lambda entrypoint (fetch → build → S3 → Aurora)
+  reference/              Known-good outputs for byte-for-byte verification
+  tests/                  pytest suite (shape, byte-for-byte, precision)
+
+src/
+  app/
+    layout.tsx            Root layout + brand header
+    page.tsx              Dashboard (renders 10 sections)
+    login/page.tsx        Cognito hosted-UI redirect
+    api/auth/*            OAuth2 callback + logout
+  components/
+    header.tsx, footer.tsx, sidebar.tsx, empty-state.tsx
+    section-shell.tsx     SectionShell, DecisionBar, StatTile primitives
+    sections/             10 dashboard sections (cover → roadmap)
+  lib/
+    data.ts               Read-side data layer (server-only)
+    segments.ts           9-code taxonomy + human labels (client-safe)
+    cognito.ts            Hosted-UI URL builders
+    db/{schema,client,migrate}.ts
+  middleware.ts           Cognito cookie gate
+
+infra/
+  template.yaml           CloudFormation: Cognito + Aurora + Secrets + S3 + ECR +
+                          Lambda + EventBridge + SG ingress rules
+  deploy.sh               Idempotent stack create/update
+  scripts/
+    init-db.sh            drizzle-kit push to live Aurora
+    build-and-push-classifier.sh   docker build → ECR
+    rotate-classifier-image.sh     update-function-code to new tag
+    invoke-classifier-manual.sh    one-shot synchronous snapshot
+
+migrations/
+  0001_initial.sql        v0.1 schema (retained for history)
+  0002_v2_pivot.sql       v2 schema — 8 tables feeding the dashboard
 ```
 
-The dashboard reads EXCLUSIVELY from Aurora. No in-memory cache of the raw API.
-`computeObservatoryData()` in `src/lib/compute/observatory.ts` is the single
-source of every number rendered anywhere.
-
-## Clone → running in 5 minutes
+## Local dev
 
 ```bash
 # 1. Dependencies
-npm install
+npm install --legacy-peer-deps
+pip install -r classifier-service/requirements-dev.txt
 
-# 2. Local Postgres
-docker compose up -d
+# 2. Local Postgres (docker) + classifier container for dry-run
+docker compose up -d postgres
 
 # 3. Env
 cp .env.example .env.local
-# Fill Cognito values or skip for headless dev (middleware still gates UI).
-# Anon Supabase key is already populated in .env.example.
+# Fill Cognito values for the live auth flow, or leave blank for headless dev
+# (middleware auto-opens when Cognito vars are unset).
 
 # 4. Schema
 npm run db:push
@@ -44,190 +111,118 @@ npm run db:push
 npm run dev
 ```
 
-Open http://localhost:3000 — you'll land on the empty state because no
-snapshot has run yet. Click **Run first snapshot**, paste the `CRON_SECRET`
-from your `.env.local`, wait ~30 seconds. The page reloads with real data.
+Open http://localhost:3000 — the dashboard renders EmptyState until the
+classifier Lambda produces a snapshot. To seed local Postgres for UI work,
+point `build_snapshots.py` at the reference CSV and write the artefacts
+directly into your DB (no helper script yet — drop a one-off SQL seed in
+`/tmp` and `psql` it in).
 
-## Sanity-check the numbers without a DB
+## Classifier dry-run
 
-Before wiring up Aurora, verify the compute path:
+From the repo root:
 
 ```bash
-npm run sanity-check
+cd classifier-service
+python -m pytest tests/ -v         # 18 tests, ~1 second
+python3 build_snapshots.py reference/classified_v2_full_reference.csv out/
+diff reference/headline_numbers.json out/headline_numbers.json
 ```
 
-Pulls the live aggregator, runs `computeObservatoryData()`, writes
-`findings.json` at repo root, prints the headline counters. No DB, no UI.
-Fast loop for iterating rules.
+## Production deploy
 
-## Cognito setup
+Three phases the first time; subsequent runs skip whatever is already in place.
 
-Minimal one-pool, email/password, hosted-login:
+### 1. Durable infra (Cognito + Aurora + Secrets Manager + S3 + ECR)
 
 ```bash
-# 1. Create user pool
-aws cognito-idp create-user-pool --pool-name unwi --region eu-west-1 \
-  --auto-verified-attributes email --username-attributes email \
-  --policies '{"PasswordPolicy":{"MinimumLength":12,"RequireUppercase":true,"RequireLowercase":true,"RequireNumbers":true,"RequireSymbols":false}}'
-
-# 2. Create the app client (note the client id)
-aws cognito-idp create-user-pool-client --user-pool-id <pool-id> \
-  --client-name unwi-web --generate-secret false \
-  --explicit-auth-flows ALLOW_USER_PASSWORD_AUTH ALLOW_REFRESH_TOKEN_AUTH \
-  --allowed-o-auth-flows code --allowed-o-auth-scopes openid email profile \
-  --allowed-o-auth-flows-user-pool-client \
-  --callback-urls "http://localhost:3000/api/auth/callback" "https://unworkforceintelligence.org/api/auth/callback" \
-  --logout-urls "http://localhost:3000/login" "https://unworkforceintelligence.org/login" \
-  --supported-identity-providers COGNITO
-
-# 3. Attach a hosted-UI domain
-aws cognito-idp create-user-pool-domain --user-pool-id <pool-id> --domain unwi-auth
-
-# 4. Create your admin user
-aws cognito-idp admin-create-user --user-pool-id <pool-id> \
-  --username you@example.org --temporary-password 'ChangeMe!123' \
-  --user-attributes Name=email,Value=you@example.org Name=email_verified,Value=true
+export AWS_PROFILE=unwi
+AWS_REGION=eu-west-1 \
+DEV_IP_CIDR="203.0.113.42/32" \
+ADMIN_EMAIL=you@example.org \
+./infra/deploy.sh
 ```
 
-Fill `COGNITO_USER_POOL_ID`, `COGNITO_CLIENT_ID`, `COGNITO_REGION`, and
-`COGNITO_DOMAIN` in `.env.local`.
+First run ~15 min (Aurora cluster creation). `ClassifierImageUri` is empty,
+so the Lambda isn't created yet — only the ECR repo.
 
-To add another user later: the same `admin-create-user` command.
-
-## Production deploy (AWS)
-
-Fully scripted in `infra/`. Summary:
+### 2. Build and push the classifier image
 
 ```bash
-# 1. Durable infra (Cognito + Aurora + Secrets Manager) — ~15 min on first run
-AWS_PROFILE=unwi ADMIN_EMAIL=you@example.org ./infra/deploy.sh
+./infra/scripts/build-and-push-classifier.sh
+# prints the tag, e.g. 123456789012.dkr.ecr.eu-west-1.amazonaws.com/unwi-classifier:abc1234
+```
 
-# 2. Apply the schema to Aurora (one-time)
+### 3. Re-deploy with the image URI to create the Lambda + EventBridge rule
+
+```bash
+CLASSIFIER_IMAGE_URI="<tag-from-step-2>" \
+DEV_IP_CIDR="203.0.113.42/32" \
+./infra/deploy.sh
+```
+
+### 4. Apply the v2 schema to Aurora
+
+```bash
 ./infra/scripts/init-db.sh
-
-# 3. Read back the env vars (values include live secrets)
-./infra/env.sh > /tmp/unwi-envs.txt
-
-# 4. Connect Amplify to github.com/McBellers-unlocked/unwi (console, ~5 min)
-#    App settings -> Environment variables -> paste the block from step 3.
-#    Amplify auto-detects Next.js; accept the build defaults.
-
-# 5. Wire the nightly cron to the Amplify URL (02:00 UTC)
-./infra/scripts/create-cron.sh https://main.xxxxxxx.amplifyapp.com
-
-# 6. Custom domain: add unworkforceintelligence.org in Amplify console,
-#    copy the printed CNAME target into Cloudflare DNS. ACM cert is
-#    issued by Amplify automatically (~15 min).
-
-# 7. Seed the first snapshot (or click the empty-state button in the UI)
-curl -X POST "$APP_URL/api/cron/snapshot-manual" \
-  -H "x-cron-secret: $(aws secretsmanager get-secret-value \
-      --secret-id unwi/cron-secret --query SecretString --output text \
-      --profile unwi --region eu-west-1)"
 ```
 
-Full walk-through with permissions, costs, and teardown in
-[`infra/README.md`](./infra/README.md).
+### 5. Wire Amplify (manual, ~10 min)
 
-## Manual seed via curl
+GitHub repo → Amplify console → connect → paste env vars from
+`./infra/env.sh` → deploy. Cognito callback URLs in `infra/template.yaml`
+already include `unworkforceintelligence.org`.
+
+### 6. Trigger the first snapshot
 
 ```bash
-curl -X POST https://unworkforceintelligence.org/api/cron/snapshot-manual \
-  -H "x-cron-secret: <your-secret>" \
-  --max-time 120
+./infra/scripts/invoke-classifier-manual.sh
 ```
 
-## Methodology notes
+Synchronous invoke (≤10 min). Watch CloudWatch Logs to confirm success,
+then reload the dashboard — all 10 sections now have data.
 
-### Duplication Radar cost
+## Classifier update procedure
 
-Each duplication event is counted as **one avoided recruitment**. Cost per
-recruitment is USD 20,000 — a conservative midpoint between SHRM's standard
-cost-per-hire benchmark (USD 4,700) and executive benchmark (USD 28,329),
-reflecting international P-level search complexity. Converted to EUR at the
-env-var `USD_TO_EUR_RATE` (default 0.92). Replace with the JIU-specific figure
-once it's finalised.
+`classifier_v2.py` is **LOCKED**. To ship a new classifier version:
 
-### Decentralisation HQ cluster
+```bash
+# 1. Drop the new classifier_v2.py into classifier-service/
+# 2. Validate locally
+cd classifier-service && python -m pytest tests/ -v
 
-The HQ cluster is defined as postings whose **location or country contains any
-of**: New York, Geneva, Vienna, Rome, Nairobi, Copenhagen. Case-insensitive
-substring match. Copenhagen is included because UNICEF/UN Women/UNOPS treat it
-as a major ops hub. The ranked table restricts to agencies with ≥20 P-level
-postings so noise (single-post agencies at 100% HQ) doesn't distort the
-leaderboard.
+# 3. Build, push, rotate
+../infra/scripts/build-and-push-classifier.sh
+../infra/scripts/rotate-classifier-image.sh
 
-### Skill cluster tagging
+# 4. Trigger a snapshot
+../infra/scripts/invoke-classifier-manual.sh
 
-Keyword-based substring match on `title + description`, lowercased. A role can
-belong to multiple clusters (counted independently). Keywords and cluster
-names are in `src/lib/compute/skills.ts`. Phase 2 swaps in an embedding-based
-classifier; cluster names are stable across versions so chart legends don't
-churn.
-
-### UN common system filter
-
-Hardcoded whitelist in `src/lib/compute/un-system.ts`, applied at compute
-time. NATO, EU Commission, European Space Agency, and other multilaterals are
-excluded. The UI toggle for multilateral view is Phase 2; v0.1 is UN-only.
-
-### YTD anchor
-
-Default 2025-08-01 (env var `YTD_ANCHOR_DATE`). Change the env var if the
-brief needs a different reporting window.
-
-## Repo layout
-
-```
-src/
-  app/
-    layout.tsx            # root layout, brand header
-    page.tsx              # dashboard (reads Aurora only)
-    login/page.tsx        # Cognito hosted-UI redirect
-    api/
-      cron/
-        snapshot/          # nightly, EventBridge
-        snapshot-manual/   # human seed / ad-hoc
-      auth/
-        callback/          # Cognito OAuth2 code exchange
-        logout/            # clear cookie + Cognito logout
-  components/
-    header.tsx
-    sidebar.tsx
-    footer.tsx
-    module-shell.tsx
-    modules/              # 7 modules, one file each
-    empty-state.tsx
-  lib/
-    compute/
-      observatory.ts      # computeObservatoryData — single source of truth
-      types.ts            # ObservatoryFindings shape
-      skills.ts           # keyword clusters
-      un-system.ts        # UN whitelist
-      normalize.ts        # title normalisation + Jaccard
-    cron/
-      run-snapshot.ts     # shared runner for both cron routes
-    db/
-      schema.ts           # Drizzle schema
-      client.ts           # pg Pool + drizzle() singleton
-      migrate.ts          # CLI runner
-      repo.ts             # read-side queries
-    supabase.ts           # jobs-api client
-    cognito.ts            # hosted-UI URL builders
-  middleware.ts           # Cognito cookie gate
-scripts/
-  sanity-check.ts         # pull + compute, no DB
-migrations/
-  0001_initial.sql
+# 5. Verify: Section 9 of the dashboard shows the new classifier SHA
 ```
 
-## Out of scope for v0.1
+The precision test in `tests/test_classifier_precision.py` asserts overall
+precision ≥ 0.95. A new classifier that regresses below that threshold will
+fail the build before ever reaching prod.
 
-Code comments only — do not build:
+## Non-digital classifier roadmap
 
-- Semantic/embedding-based duplication detection (Phase 2)
-- ML skills classifier (Phase 2, currently keyword)
-- Per-agency tenancy
-- Email briefings, CSV exports
-- Saved views / annotations
-- Multilateral-view UI toggle (UN-only hardcoded in v0.1)
+`classifier_v2.py` is the seam. The Q3 2026 release will add
+`classifier_nondigital_v1.py` covering 10 additional segments (humanitarian,
+climate, public health, education, social policy, legal, governance, finance,
+supply chain, HR). Artefacts publish under `s3://<bucket>/snapshots/latest/nondigital/`
+with a mirrored Aurora schema. Existing dashboard shell is reused.
+
+## Cost (eu-west-1, approximate)
+
+| Item | Baseline |
+|---|---|
+| Aurora Serverless v2 @ 0.5 ACU | ~$45/mo |
+| Aurora storage (first 20 GB) | ~$2/mo |
+| Amplify hosting | ~$5–10/mo |
+| Cognito (< 50k users) | $0 |
+| Secrets Manager (2 secrets) | ~$0.80/mo |
+| S3 snapshots (< 1 GB) | < $0.10/mo |
+| Lambda classifier (1 run/day × 5 min × 2 GB) | < $1/mo |
+| ECR image storage (single tag) | ~$0.10/mo |
+| EventBridge | ~$0 |
+| **Total** | **~$55/mo** before traffic |

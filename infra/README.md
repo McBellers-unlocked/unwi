@@ -4,127 +4,142 @@ CloudFormation-managed durable resources for UN Workforce Intelligence.
 
 ```
 infra/
-  template.yaml     # all durable AWS resources
-  deploy.sh         # create / update the stack (idempotent)
-  env.sh            # print Amplify-ready env vars from stack outputs
-  destroy.sh        # tear down (leaves a final Aurora snapshot behind)
+  template.yaml                     All durable AWS resources
+  deploy.sh                         Create / update the stack (idempotent)
+  env.sh                            Print Amplify-ready env vars
+  destroy.sh                        Tear down (Aurora final snapshot retained)
+  scripts/
+    init-db.sh                      drizzle-kit push → Aurora
+    build-and-push-classifier.sh    Docker build + ECR push
+    rotate-classifier-image.sh      Update-function-code to a new image
+    invoke-classifier-manual.sh     One-shot synchronous classifier run
 ```
 
 ## What's in the stack
 
-- **Cognito** user pool + hosted-UI domain + app client with the callback URLs
-  for `localhost:3000`, `localhost:3003`, and `unworkforceintelligence.org`.
-- **Aurora Serverless v2** Postgres (16.6, 0.5–2 ACU by default, 7-day backups,
-  snapshot-on-delete). Placed in the default VPC with a security group that
-  allows 5432 from anywhere — Amplify SSR has no stable IP range, and the
-  cluster's only auth is a 32-char random password held in Secrets Manager.
-  Lock this down once the runtime moves off Amplify.
-- **Secrets Manager** — DB master credentials (JSON) + a random 48-char
-  `x-cron-secret` that protects `/api/cron/*`.
+- **Cognito** user pool + hosted-UI domain + app client (callback URLs for
+  `localhost:3000`, `localhost:3003`, and `unworkforceintelligence.org`).
+- **Aurora Serverless v2** Postgres 16.6 (0.5–2 ACU by default, 7-day backups,
+  snapshot-on-delete). Publicly accessible for Amplify SSR; SG split below.
+- **Secrets Manager** — DB master credentials + legacy `x-cron-secret` (kept
+  for rollback; no longer consumed).
+- **S3 bucket** — `unwi-snapshots-<account>`, versioned, private. Holds the
+  12 classifier artefacts per run + a `latest/` pointer.
+- **ECR repo** — `unwi-classifier` for the Python Lambda container image.
+- **Lambda** — `unwi-classifier`, container image, 2 GB / 10 min, VPC-attached
+  to the same subnets as Aurora. Created on the second deploy (after image is
+  pushed).
+- **IAM role** — S3 write + Secrets Manager read + VPC access. Provisioned
+  with the Lambda (conditional on `ClassifierImageUri`).
+- **EventBridge rule** — `unwi-classifier-nightly` at `cron(0 2 * * ? *)`,
+  target Lambda. Replaces the old API-destination rule.
+- **SG split** — `ClassifierLambdaSG` (egress only) and `DBSecurityGroup`
+  with three ingress rules:
+  - `SourceSecurityGroupId`: ClassifierLambdaSG
+  - `CidrIp`: `DevIpCidr` param (narrow to `/32` in prod)
+  - `CidrIp`: `AmplifyCidr` param (default `0.0.0.0/0` — tighten when Amplify
+    moves into the VPC)
 
 **Not in the stack** (deliberate):
 
-- Amplify hosting app — needs GitHub OAuth, created manually in the AWS
-  console once the GitHub repo exists.
-- EventBridge nightly cron — deferred until the Amplify URL is known. Wire it
-  up as Step 4 below.
+- Amplify hosting app — requires GitHub OAuth, created manually in the
+  console.
 - Route 53 / ACM — DNS lives at Cloudflare. Amplify issues its own ACM cert
-  when you add the custom domain; point Cloudflare at the Amplify CNAME.
+  when the custom domain is added.
 
 ## Deploy
 
+### First time
+
 ```bash
-cd /c/dev/unwi
 export AWS_PROFILE=unwi
+AWS_REGION=eu-west-1 \
+DEV_IP_CIDR="203.0.113.42/32" \
+ADMIN_EMAIL=you@example.org \
 ./infra/deploy.sh
 ```
 
-First run takes ~15 minutes (Aurora cluster creation is the slow step).
-Subsequent runs are ~2 minutes on changes or seconds on no-ops.
+First run ~15 min (Aurora cluster creation). On this first pass,
+`ClassifierImageUri` is empty, so only the ECR repo is created (the Lambda +
+EventBridge rule are conditional and skipped).
 
-To pre-create a Cognito admin user:
-
-```bash
-ADMIN_EMAIL=you@example.org ./infra/deploy.sh
-```
-
-Cognito emails a temporary password; first sign-in forces a reset.
-
-## Apply the schema to Aurora
-
-Before the first cron run, the four UNWI tables need to exist:
+### Push the classifier image
 
 ```bash
-AWS_PROFILE=unwi ./infra/scripts/init-db.sh
+./infra/scripts/build-and-push-classifier.sh
 ```
 
-Uses `drizzle-kit push --force` to diff the Drizzle schema against the live
-cluster and apply only the missing pieces. Idempotent — safe to run again
-after any schema change.
+Prints a git-SHA tag. Use it in the next step.
 
-## Get the env vars for Amplify
+### Re-deploy to create the Lambda
 
 ```bash
-./infra/env.sh
+CLASSIFIER_IMAGE_URI="<tag-from-previous-step>" \
+DEV_IP_CIDR="203.0.113.42/32" \
+./infra/deploy.sh
 ```
 
-Prints `KEY=VALUE` lines you paste into the Amplify app's Environment
-Variables section. Values include the live DB password and cron secret, so
-don't redirect this to anywhere tracked.
+This pass creates `ClassifierLambda`, `ClassifierLambdaRole`,
+`ClassifierNightly` rule, and the invoke permission.
 
-## Amplify app (manual, one-time, ~10 minutes)
-
-1. Push the repo to `github.com/McBellers-unlocked/unwi` (see top-level README
-   for the git remote setup).
-2. AWS console → Amplify → "Create new app" → "Host web app" → GitHub,
-   authorise, pick the repo and `main` branch.
-3. Build settings: Amplify auto-detects Next.js. Accept defaults.
-4. Environment variables: paste from `./infra/env.sh`.
-5. Advanced settings → Service role: let Amplify create one.
-6. Save and deploy. First build ≈ 5 minutes.
-
-## Custom domain (Cloudflare → Amplify)
-
-In Amplify console:
-
-1. App settings → Domain management → "Add domain" → type
-   `unworkforceintelligence.org`.
-2. Amplify prints a CNAME target (looks like `d1xxxxxxx.cloudfront.net`) and
-   a verification CNAME.
-3. At Cloudflare (DNS tab for unworkforceintelligence.org):
-   - Add CNAME: `@` → Amplify target (enable CNAME flattening if available)
-   - Add CNAME: `www` → Amplify target
-   - Add verification CNAME as prompted
-4. Wait ~15 minutes for Amplify to issue the ACM cert.
-
-## Nightly cron (after Amplify is live)
-
-Run this with your Amplify production URL filled in:
+### Apply the schema
 
 ```bash
-APP_URL="https://main.xxxxx.amplifyapp.com"  # or unworkforceintelligence.org
-CRON_SECRET=$(aws secretsmanager get-secret-value \
-  --secret-id unwi/cron-secret \
-  --query SecretString --output text \
-  --profile unwi --region eu-west-1)
-
-# Creates the EventBridge Scheduler HTTPS target firing 02:00 UTC daily.
-# (Keeping this outside the main stack so re-deploys don't need the app URL.)
-./infra/scripts/create-cron.sh "$APP_URL" "$CRON_SECRET"
+./infra/scripts/init-db.sh
 ```
 
-The script is a stub for now — fill it in once the Amplify app URL is known.
+## Classifier updates
+
+```bash
+./infra/scripts/build-and-push-classifier.sh
+./infra/scripts/rotate-classifier-image.sh
+./infra/scripts/invoke-classifier-manual.sh
+```
+
+Three-command redeploy. `rotate-classifier-image.sh` uses
+`update-function-code --image-uri` which is non-destructive — if the new
+image has a bug, re-running with an old tag reverts.
+
+## Inspecting snapshot runs
+
+```
+SELECT id, started_at, finished_at, status, rows_fetched,
+       rows_classified, s3_key_prefix, error_message
+  FROM snapshot_runs
+ ORDER BY started_at DESC
+ LIMIT 20;
+```
+
+Lambda writes one row per invocation; status transitions `running` →
+`success` / `failed` with an error message on rollback.
+
+## Known follow-ups
+
+- **IAM DB auth** — currently password-from-Secrets-Manager. Switching to IAM
+  auth (`rds-db:connect`) needs `psycopg` token plumbing and
+  `EnableIAMDatabaseAuthentication: true` on the cluster. Deferred.
+- **Amplify into VPC** — Gen 1 Amplify has no stable egress IP, so
+  `AmplifyCidr` defaults to `0.0.0.0/0`. Migrating to Amplify Gen 2 (VPC
+  connector) lets us tighten the SG further.
+- **S3 lifecycle** — a Glacier transition after 90 days is commented out in
+  `template.yaml`; enable once the snapshot history grows.
+- **Cost of ECR image versioning** — `build-and-push-classifier.sh` pushes
+  both `:<sha>` and `:latest`. Add an ECR lifecycle policy to prune older
+  tags after N commits.
 
 ## Costs (eu-west-1, rough)
 
 | Item | Baseline |
 |---|---|
 | Aurora Serverless v2 @ 0.5 ACU | ~$45/mo |
-| Aurora storage (first 20 GB) | ~$2/mo |
-| Amplify hosting (low traffic) | ~$5–10/mo |
-| Cognito (< 50k users) | $0 |
-| Secrets Manager (2 secrets) | ~$0.80/mo |
-| EventBridge Scheduler | ~$0 (<14m schedules/mo) |
+| Aurora storage | ~$2/mo |
+| Amplify hosting | ~$5–10/mo |
+| Cognito | $0 |
+| Secrets Manager | ~$0.80/mo |
+| S3 snapshots | < $0.10/mo |
+| Lambda (1×5 min × 2 GB daily) | < $1/mo |
+| ECR single-tag storage | ~$0.10/mo |
+| EventBridge | ~$0 |
 | **Total** | **~$55/mo** before traffic |
 
 ## Teardown
@@ -134,4 +149,5 @@ The script is a stub for now — fill it in once the Amplify app URL is known.
 ```
 
 Aurora retains a final snapshot under the cluster ID — delete manually in the
-RDS console if you want zero DB spend.
+RDS console if you want zero DB spend. The S3 bucket has versioning enabled
+so object deletes need a manual empty pass before the bucket can be removed.
