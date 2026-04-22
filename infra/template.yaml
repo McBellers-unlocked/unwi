@@ -172,6 +172,16 @@ Resources:
   # Aurora Serverless v2 — Postgres
   # --------------------------------------------------------------------
 
+  DBClusterParameterGroup:
+    Type: AWS::RDS::DBClusterParameterGroup
+    Properties:
+      Description: UNWI Aurora cluster parameter group - force SSL
+      Family: aurora-postgresql16
+      Parameters:
+        rds.force_ssl: "1"
+      Tags:
+        - { Key: Project, Value: !Ref ProjectName }
+
   DBCluster:
     Type: AWS::RDS::DBCluster
     DeletionPolicy: Snapshot
@@ -181,6 +191,7 @@ Resources:
       EngineVersion: "16.6"
       DatabaseName: unwi
       DBClusterIdentifier: !Sub "${ProjectName}-aurora"
+      DBClusterParameterGroupName: !Ref DBClusterParameterGroup
       MasterUsername: !Sub "{{resolve:secretsmanager:${DBMasterSecret}:SecretString:username}}"
       MasterUserPassword: !Sub "{{resolve:secretsmanager:${DBMasterSecret}:SecretString:password}}"
       DBSubnetGroupName: !Ref DBSubnetGroup

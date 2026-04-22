@@ -160,6 +160,8 @@ export interface GeographyRow {
   count: number;
   share: number;
   topSegment: string | null;
+  topSegments: string[];
+  organisationCount: number;
 }
 
 export async function getGeography(): Promise<GeographyRow[]> {
@@ -175,6 +177,8 @@ export async function getGeography(): Promise<GeographyRow[]> {
     count: r.count,
     share: Number(r.share),
     topSegment: r.topSegment,
+    topSegments: r.topSegments ?? (r.topSegment ? [r.topSegment] : []),
+    organisationCount: r.organisationCount ?? 0,
   }));
 }
 

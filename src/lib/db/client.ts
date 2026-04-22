@@ -23,11 +23,15 @@ function buildPool(): Pool {
       "DATABASE_URL is not set. See .env.example for the format.",
     );
   }
+  // Aurora cluster parameter group sets rds.force_ssl=1, so every non-local
+  // connection MUST use TLS. AWS terminates with its own CA chain; disabling
+  // cert verification is standard on managed RDS/Aurora where the cert is
+  // ambient and trust is established by VPC + password + IAM.
+  const isLocal = /@localhost|@127\.0\.0\.1|:5433/.test(url);
   return new Pool({
     connectionString: url,
-    // Aurora Serverless v2 tolerates short-lived idle connections well; the
-    // default is fine for both local dev and Amplify server runtime.
     max: 10,
+    ssl: isLocal ? false : { rejectUnauthorized: false },
   });
 }
 

@@ -151,6 +151,8 @@ export const geography = pgTable(
     count: integer("count").notNull(),
     share: numeric("share", { precision: 5, scale: 2 }).notNull(),
     topSegment: text("top_segment"),
+    topSegments: jsonb("top_segments").$type<string[]>(),
+    organisationCount: integer("organisation_count"),
   },
   (t) => ({
     pk: primaryKey({ columns: [t.snapshotDate, t.locationOrCountry] }),

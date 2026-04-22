@@ -27,6 +27,7 @@ from pathlib import Path
 from build_snapshots import (
     PRIMARY_PERIOD,
     COMPARATOR_PERIOD,
+    _geography_by_location,
     build_all,
     load_rows,
 )
@@ -108,7 +109,7 @@ def _write_to_aurora(
             _upsert_snapshot(cur, artefacts, snapshot_date)
             _replace_segment_distribution(cur, artefacts, snapshot_date)
             _replace_organisation_breakdown(cur, artefacts, snapshot_date)
-            _replace_geography(cur, artefacts, snapshot_date)
+            _replace_geography(cur, rows_loaded, snapshot_date)
             _replace_comparator_segment_shares(cur, artefacts, snapshot_date)
             _replace_source_coverage(cur, artefacts, snapshot_date)
             _refresh_active_roles(cur, rows_loaded, snapshot_date)
@@ -251,23 +252,30 @@ def _replace_organisation_breakdown(cur, artefacts, snapshot_date):
         )
 
 
-def _replace_geography(cur, artefacts, snapshot_date):
-    if "geography.csv" not in artefacts:
+def _replace_geography(cur, rows_loaded, snapshot_date):
+    """Write geography with top-3 segments and distinct org count per location.
+    Skips the CSV (which only carries top_segment singular) and computes
+    richer per-location data directly from the loaded rows."""
+    data = _geography_by_location(rows_loaded, PRIMARY_PERIOD)
+    if not data:
         return
     cur.execute("DELETE FROM geography WHERE snapshot_date = %s", (snapshot_date,))
-    for r in _csv_rows(artefacts["geography.csv"]):
+    for loc, d in data.items():
         cur.execute(
             """
             INSERT INTO geography
-                (snapshot_date, location_or_country, count, share, top_segment)
-            VALUES (%s, %s, %s, %s, %s)
+                (snapshot_date, location_or_country, count, share,
+                 top_segment, top_segments, organisation_count)
+            VALUES (%s, %s, %s, %s, %s, %s::jsonb, %s)
             """,
             (
                 snapshot_date,
-                r["location_or_country"],
-                int(r["count"]),
-                float(r["share"]),
-                r["top_segment"] or None,
+                loc,
+                d["count"],
+                d["share"],
+                d["top_segments"][0] if d["top_segments"] else None,
+                json.dumps(d["top_segments"]),
+                len(d["organisations"]),
             ),
         )
 

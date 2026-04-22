@@ -113,6 +113,55 @@ SELECT id, started_at, finished_at, status, rows_fetched,
 Lambda writes one row per invocation; status transitions `running` →
 `success` / `failed` with an error message on rollback.
 
+## DB user setup
+
+Migration `0002_v2_pivot.sql` creates two least-privilege roles without
+passwords:
+
+- `unwi_writer` — SELECT/INSERT/UPDATE/DELETE on all snapshot tables.
+  Used by the classifier Lambda.
+- `unwi_reader` — SELECT only, on current and future tables in `public`.
+  Used by the Amplify SSR Next.js reader.
+
+Operators MUST set passwords after the migration runs. Generate random
+passwords and store them in Secrets Manager (`unwi/aurora/writer`,
+`unwi/aurora/reader`), then apply:
+
+```bash
+WRITER_PW=$(openssl rand -base64 32 | tr -d '=')
+READER_PW=$(openssl rand -base64 32 | tr -d '=')
+
+aws secretsmanager create-secret --name unwi/aurora/writer --secret-string "$WRITER_PW" \
+  --profile unwi --region eu-west-1
+aws secretsmanager create-secret --name unwi/aurora/reader --secret-string "$READER_PW" \
+  --profile unwi --region eu-west-1
+
+psql "$AURORA_ADMIN_DSN" <<SQL
+ALTER ROLE unwi_writer PASSWORD '$WRITER_PW';
+ALTER ROLE unwi_reader PASSWORD '$READER_PW';
+SQL
+```
+
+Then point the classifier Lambda at `unwi/aurora/writer` (set `DB_SECRET_ARN`
+in the stack) and Amplify SSR at `unwi/aurora/reader` (set `DATABASE_URL`
+using the reader credentials).
+
+The master-user credentials stay in `unwi/aurora/master` for migrations /
+emergency access only; neither runtime should use them day-to-day.
+
+## KNOWN: Amplify-to-Aurora ingress is 0.0.0.0/0
+
+`AmplifyCidr` defaults to `0.0.0.0/0` because Amplify Gen 1 SSR has no stable
+egress IP range. This is intentionally documented so reviewers don't mistake
+it for a miss: tightening requires migrating to **Amplify Gen 2** with the
+VPC connector. Target: within 2 weeks of the first pitch. Once Amplify SSR
+runs in the VPC, narrow `AmplifyCidr` to the connector's SG or remove the
+ingress rule entirely and route through the `ClassifierLambdaSG` pattern.
+
+In the interim, password + TLS (rds.force_ssl=1, verified at the client via
+`sslmode=require` in drizzle-kit + `ssl: { rejectUnauthorized: false }` in
+the pg Pool) is the effective control.
+
 ## Known follow-ups
 
 - **IAM DB auth** — currently password-from-Secrets-Manager. Switching to IAM

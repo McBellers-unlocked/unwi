@@ -55,6 +55,8 @@ CREATE TABLE geography (
   count                INTEGER NOT NULL,
   share                NUMERIC(5, 2) NOT NULL,
   top_segment          TEXT,
+  top_segments         JSONB,
+  organisation_count   INTEGER,
   PRIMARY KEY (snapshot_date, location_or_country)
 );
 
@@ -107,3 +109,46 @@ CREATE TABLE snapshot_runs (
 
 CREATE INDEX idx_snapshot_runs_finished_at
   ON snapshot_runs (finished_at DESC);
+
+-- -----------------------------------------------------------------------
+-- Least-privilege DB roles.
+--
+-- Created without passwords; operators MUST set credentials after migration
+-- with:
+--   ALTER ROLE unwi_writer PASSWORD '<from Secrets Manager unwi/aurora/writer>';
+--   ALTER ROLE unwi_reader PASSWORD '<from Secrets Manager unwi/aurora/reader>';
+-- See infra/README.md "DB user setup".
+--
+-- unwi_writer  SELECT/INSERT/UPDATE/DELETE on snapshot tables — Lambda classifier
+-- unwi_reader  SELECT only on all tables                        — Amplify SSR
+-- -----------------------------------------------------------------------
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'unwi_writer') THEN
+        CREATE ROLE unwi_writer LOGIN;
+    END IF;
+    IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'unwi_reader') THEN
+        CREATE ROLE unwi_reader LOGIN;
+    END IF;
+END
+$$;
+
+GRANT CONNECT ON DATABASE unwi TO unwi_writer, unwi_reader;
+GRANT USAGE ON SCHEMA public TO unwi_writer, unwi_reader;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON
+    snapshots,
+    segment_distribution,
+    organisation_breakdown,
+    geography,
+    comparator_segment_shares,
+    source_coverage,
+    active_roles,
+    snapshot_runs
+  TO unwi_writer;
+GRANT USAGE, SELECT ON SEQUENCE snapshot_runs_id_seq TO unwi_writer;
+
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO unwi_reader;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+    GRANT SELECT ON TABLES TO unwi_reader;

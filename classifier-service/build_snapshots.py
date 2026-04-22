@@ -326,7 +326,11 @@ def build_organisation_breakdown(
     )
 
 
-def build_geography(rows: list[Row], primary: tuple[date, date]) -> bytes:
+def _geography_by_location(
+    rows: list[Row], primary: tuple[date, date]
+) -> dict[str, dict[str, Any]]:
+    """Per-location aggregates consumed by build_geography (CSV) and the
+    handler's Aurora write (JSONB top_segments column)."""
     primary_rows = [
         r for r in rows if _in_period(r.posted_date, primary) and r.location
     ]
@@ -337,14 +341,32 @@ def build_geography(rows: list[Row], primary: tuple[date, date]) -> bytes:
     for r in digital_rows:
         by_loc[r.location].append(r)
 
-    records = []
+    out: dict[str, dict[str, Any]] = {}
     for loc, group in by_loc.items():
         count = len(group)
         seg_counts = Counter(r.segment for r in group)
-        top = seg_counts.most_common(1)[0][0] if seg_counts else ""
-        records.append((loc, count, _pct(count, digital_total), top))
+        top3 = [s for s, _ in seg_counts.most_common(3)]
+        orgs = sorted({r.organization for r in group if r.organization})
+        out[loc] = {
+            "count": count,
+            "share": _pct(count, digital_total),
+            "top_segments": top3,
+            "organisations": orgs,
+        }
+    return out
 
-    records.sort(key=lambda r: (-r[1], r[0]))
+
+def build_geography(rows: list[Row], primary: tuple[date, date]) -> bytes:
+    """CSV schema matches the reference (4 columns). Per-location top-3 and
+    org list are exposed via _geography_by_location for the DB write path."""
+    data = _geography_by_location(rows, primary)
+    records = sorted(
+        (
+            (loc, d["count"], d["share"], d["top_segments"][0] if d["top_segments"] else "")
+            for loc, d in data.items()
+        ),
+        key=lambda r: (-r[1], r[0]),
+    )
     return _csv_bytes(
         ["location_or_country", "count", "share", "top_segment"],
         [list(r) for r in records],

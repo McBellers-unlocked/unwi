@@ -34,6 +34,23 @@ Specific known divergences (see `scripts/spot_check_output.txt`):
   sub-segments (UX/UI, Data Engineering, Data Analytics & BI) roll up into
   PRODUCT / DATA_AI. Row-by-row deck comparison is therefore not 1:1.
 
+## POLICY_ADVISORY is a v2-specific segment
+
+v2 surfaces POLICY_ADVISORY as a distinct segment capturing AI governance,
+digital policy, Technology-for-Development (T4D), digital-readiness
+assessments, and technology-advisory roles. The Q1 2026 deck's 14-segment
+taxonomy did not surface this as a standalone bucket; v2 does because these
+roles have emerged as an institutionally distinct category across the UN
+system (UNICEF T4D portfolio, ESCAP/ESCWA digital development experts, the
+SG Envoy on Technology's AI Governance office, Technology Bank for LDCs,
+UNCTAD digital customs work, WHO digital-health-and-AI advisory, and
+equivalents elsewhere).
+
+`scripts/spot_check.py` Section 8 samples 20 random POLICY_ADVISORY rows with
+title + organisation + rule trace so reviewers can eyeball whether the
+classifier is over-calling; the current sample shows clean fires with no
+generic "Policy Officer" bleed-in.
+
 Byte-for-byte reproducibility gate still passes on 5 artefacts
 (`headline_numbers`, `segment_distribution`, `organisation_breakdown`,
 `source_coverage`, `comparator_segment_shares`) and on the stable fields of
