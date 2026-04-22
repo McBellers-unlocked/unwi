@@ -69,7 +69,10 @@ Resources:
         SecretStringTemplate: '{"username": "unwiadmin"}'
         GenerateStringKey: password
         PasswordLength: 32
-        ExcludeCharacters: '"@/\'
+        # Exclusions beyond the SecretsManager defaults: characters that
+        # confuse URL parsers (@, /), YAML (", \), dotenv comment chars (#),
+        # and ampersands that break query-string-style connection strings.
+        ExcludeCharacters: '"@/\#&'
       Tags:
         - { Key: Project, Value: !Ref ProjectName }
 
@@ -80,7 +83,10 @@ Resources:
       Description: Header value required on /api/cron/snapshot requests.
       GenerateSecretString:
         PasswordLength: 48
-        ExcludeCharacters: '"@/\'
+        ExcludePunctuation: true  # alphanumeric only — survives every
+                                  # env-var / dotenv / shell-quoting path
+                                  # we pass through (Amplify -> .env.production
+                                  # -> Lambda env).
       Tags:
         - { Key: Project, Value: !Ref ProjectName }
 
