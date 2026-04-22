@@ -1,0 +1,149 @@
+location_or_country,count,share,top_segment
+"Geneva, Switzerland",38,8.44,DATA_AI
+"Brussels, Belgium",36,8.0,CYBER
+"New York, United States",36,8.0,DATA_AI
+Brussels (Belgium),19,4.22,ITOPS
+"Nairobi, Kenya",19,4.22,DATA_AI
+"Amman, Jordan",14,3.11,SOFTWARE
+"Manila, Philippines",14,3.11,ITOPS
+"Rome, Italy",10,2.22,DATA_AI
+"Vienna, Austria",10,2.22,DATA_AI
+"Copenhagen, Denmark",9,2.0,CLOUD
+(unknown),8,1.78,ITOPS
+"Beirut, Lebanon",8,1.78,POLICY_ADVISORY
+"Bangkok, Thailand",7,1.56,INFO_KM
+Home based,6,1.33,PRODUCT
+"Valencia, Spain",6,1.33,ITOPS
+"Florence, Italy",5,1.11,DATA_AI
+Gebze,5,1.11,POLICY_ADVISORY
+"Madrid, Spain",5,1.11,PRODUCT
+"The Hague, The Netherlands",5,1.11,SOFTWARE
+"Addis Ababa, Ethiopia",4,0.89,ITOPS
+"Budapest, Hungary",4,0.89,ITOPS
+"Paris, France",4,0.89,DATA_AI
+"Stockholm, Sweden",4,0.89,POLICY_ADVISORY
+"The Hague, Netherlands",4,0.89,DATA_AI
+"Cairo, Egypt",3,0.67,CYBER
+"Kabul, Afghanistan",3,0.67,DATA_AI
+"Kuala Lumpur, Malaysia",3,0.67,ITOPS
+"Lusaka, Zambia",3,0.67,ITOPS
+Luxembourg (Luxembourg),3,0.67,CYBER
+"Maiduguri, Nigeria",3,0.67,INFO_KM
+"Noordwijk, Netherlands",3,0.67,CYBER
+"Pemba, Mozambique",3,0.67,ITOPS
+"Port Of Spain, Trinidad and Tobago",3,0.67,ITOPS
+"Port-Au-Prince, Haiti",3,0.67,ITOPS
+Remote,3,0.67,ITOPS
+"Strasbourg, France",3,0.67,ITOPS
+"Abidjan, Cote d'Ivoire",2,0.44,DATA_AI
+"Antananarivo, Madagascar",2,0.44,POLICY_ADVISORY
+"Bonn, Germany",2,0.44,ITOPS
+"Brunssum, Netherlands",2,0.44,INFO_KM
+"Buenos Aires, Argentina",2,0.44,ITOPS
+"Caracas, Venezuela",2,0.44,CLOUD
+"Colombo, Sri Lanka",2,0.44,INFO_KM
+"Dhaka, Bangladesh, R",2,0.44,DATA_AI
+Fiji/Pacific Island Countries,2,0.44,ITOPS
+"Fo Jordan, Jordan",2,0.44,ITOPS
+"Helsinki, Finland",2,0.44,DATA_AI
+Home Based,2,0.44,DATA_AI
+India,2,0.44,POLICY_ADVISORY
+"Lome, Togo",2,0.44,DATA_AI
+"Luxembourg, Luxembourg",2,0.44,INFO_KM
+"Mexico City, Mexico",2,0.44,DATA_AI
+"Mons, Belgium",2,0.44,CYBER
+Multiple locations,2,0.44,ITOPS
+"Norfolk, Virginia, USA",2,0.44,ITOPS
+"Prague, Czech Republic",2,0.44,CYBER
+"Santiago, Chile",2,0.44,DATA_AI
+"Valletta, Malta",2,0.44,ITOPS
+"Abyei, South Sudan",1,0.22,ITOPS
+"Aden, Yemen",1,0.22,DATA_AI
+Afghanistan,1,0.22,ITOPS
+Afghanistan Open To Afghan Nationals Only,1,0.22,ITOPS
+"Afghanistan, Nepal",1,0.22,INFO_KM
+"Amman, Jordan, Hashemite",1,0.22,ITOPS
+"Angers, France",1,0.22,ITOPS
+"Ankara, Turkiye",1,0.22,ITOPS
+"Apia, Samoa",1,0.22,DATA_AI
+"Arusha, Tanzania",1,0.22,INFO_KM
+Asian Development Bank,1,0.22,CLOUD
+"Baghdad, Iraq",1,0.22,ITOPS
+"Barcelona, Spain",1,0.22,PRODUCT
+Benin,1,0.22,POLICY_ADVISORY
+Berlin (Germany),1,0.22,ITOPS
+"Bern, Switzerland",1,0.22,DATA_AI
+"Bogotá, Colombia",1,0.22,DATA_AI
+"Brasilia, Brazil",1,0.22,ITOPS
+Brazil,1,0.22,ITOPS
+"Brazzaville, Congo",1,0.22,ITOPS
+"Cologne, Germany",1,0.22,CYBER
+"Darmstadt, Germany",1,0.22,CYBER
+"Dushanbe, Tajikistan",1,0.22,ITOPS
+"East Jerusalem, West Bank & Gaza",1,0.22,ITOPS
+Ecuador,1,0.22,PRODUCT
+Fiji Post 135988 Temporary Appointment 364,1,0.22,SOFTWARE
+"Frankfurt, Germany",1,0.22,ITOPS
+"Frascati, Italy",1,0.22,DATA_AI
+"Gaza, West Bank & Gaza",1,0.22,INFO_KM
+Gibraltar,1,0.22,ITOPS
+"Guatemala City, Guatemala",1,0.22,ITOPS
+"Harare, Zimbabwe",1,0.22,PRODUCT
+"Headquarters Allied Joint Force Command Naples; Naples, Lago Patria (ITA) GRADE: G8 SECURITY CLEARANCE: NATO S E C R E T VACANCY N°: OJS RCCX 1010 Employment contract: 1-year Definite Duration contract within the NATO Agenda 2030 1. POST CONTEXT Headquarters Allied Joint Force Command Naples is a Joint Headquarters, operating at the Operational Level, capable of executing effective comm...",1,0.22,CYBER
+"Hq Amman, Jordan",1,0.22,ITOPS
+"Hq Gaza, Palestine",1,0.22,DATA_AI
+"Islamabad, Pakistan",1,0.22,DATA_AI
+"Istanbul, Türkiye",1,0.22,ITOPS
+Italy 00133201,1,0.22,ITOPS
+"Jerusalem, Palestine",1,0.22,DATA_AI
+"Jijiga, Ethiopia",1,0.22,ITOPS
+Jordan,1,0.22,DATA_AI
+"Juba(sudan), Sudan",1,0.22,DATA_AI
+"Juba, South Sudan",1,0.22,DATA_AI
+"Kazulu, Tanzania, The United",1,0.22,ITOPS
+"Kigali, Rwanda",1,0.22,ITOPS
+"Kingston, Jamaica",1,0.22,ITOPS
+"Kinshasa, Congo",1,0.22,ITOPS
+"Kinshasa, Democratic Republic of Congo",1,0.22,ITOPS
+"Kosti, Sudan, The",1,0.22,ITOPS
+"Kyiv, Ukraine",1,0.22,DATA_AI
+Lao People’s Democratic Republic,1,0.22,POLICY_ADVISORY
+"Lima, Peru",1,0.22,PRODUCT
+Ljubljana (Slovenia),1,0.22,ITOPS
+"Mogadishu, Somalia",1,0.22,ITOPS
+"Monrovia, Liberia",1,0.22,ITOPS
+"Montreal, Canada",1,0.22,POLICY_ADVISORY
+Multiple Locations,1,0.22,ITOPS
+Nepal,1,0.22,INFO_KM
+Nepal Resident Mission,1,0.22,PRODUCT
+"New Delhi, India",1,0.22,POLICY_ADVISORY
+"Nl Paris, Fr",1,0.22,POLICY_ADVISORY
+POHNPEI (PONAPE),1,0.22,DATA_AI
+Pakistan,1,0.22,DATA_AI
+Paris (France),1,0.22,ITOPS
+"Paris (Neuilly-sur-Seine), France Duty start: The position is vacant as of 01 March 2026 Closing Date: 01 April 2026 Vacancy ref.: 260295 The interview of shortlisted candidates is provisionally scheduled to be held in Paris - Neuilly-sur-Seine (FR) mid-May 2026. 1. POST CONTEXT AND RESPONSIBILITIES - The mission of th...",1,0.22,CYBER
+Philippines,1,0.22,DATA_AI
+"Phnom Penh, Cambodia",1,0.22,POLICY_ADVISORY
+"Port Sudan, Sudan",1,0.22,ITOPS
+"Port-au-Prince, Haiti",1,0.22,ITOPS
+"Pristina, Kosovo NATO GRADE: MCIV5 The NATO-led Kosovo Force (KFOR) is deployed in Kosovo to help maintain a safe and secure environment and freedom of movement for all citizens, irrespective of their ethnic origin. KFOR is part of the wider international effort to build peace and stability in the area. Headquarters KFOR (HQ KFOR) is based in Camp Film City, Pristina. The Office of the Directorate of Staff coordinates support...",1,0.22,INFO_KM
+"Quelimane, Mozambique",1,0.22,ITOPS
+Riga (Latvia),1,0.22,ITOPS
+Rome (Italy),1,0.22,ITOPS
+"San Salvador, El Salvador",1,0.22,PRODUCT
+"Santo Domingo, Dominican , The",1,0.22,ITOPS
+"Santo Domingo, Dominican Republic",1,0.22,DATA_AI
+Sofia (Bulgaria),1,0.22,ITOPS
+South Africa,1,0.22,ITOPS
+"Suva, Fiji",1,0.22,ITOPS
+Switzerland,1,0.22,POLICY_ADVISORY
+"Tirana, Albania",1,0.22,ITOPS
+"UNICEF Global Learning Innovation Hub - Helsinki, Finland",1,0.22,INFO_KM
+United Kingdom,1,0.22,DATA_AI
+"Vientiane, Laos",1,0.22,ITOPS
+"Villanueva De La CañAda, Spain",1,0.22,CLOUD
+"Warsaw, Poland",1,0.22,CYBER
+"Wewak, Papua New Guinea",1,0.22,ITOPS
+"Yangon, Myanmar",1,0.22,PRODUCT
+"Yaounde, Cameroon",1,0.22,DATA_AI
+Zambia,1,0.22,ITOPS
