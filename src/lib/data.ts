@@ -253,7 +253,10 @@ export async function getActiveRoles(filter?: {
   }
   if (filter?.windowDays) {
     conditions.push(
-      sql`${activeRoles.closingDate} is not null and ${activeRoles.closingDate} <= current_date + ${filter.windowDays}`,
+      // pg binds windowDays as 'unknown', which makes `date + unknown`
+      // ambiguous to Postgres ("operator is not unique"). Cast explicitly to
+      // int so the date + int operator is selected.
+      sql`${activeRoles.closingDate} is not null and ${activeRoles.closingDate} <= current_date + (${filter.windowDays})::int`,
     );
   }
   const whereClause =
