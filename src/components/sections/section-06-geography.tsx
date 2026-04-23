@@ -57,7 +57,7 @@ export async function Section06Geography() {
     >
       <DutyStationMaps rows={rows} stations={stations} />
       <DecisionBar>
-        Brussels, Geneva, New York and Nairobi carry structural collision
+        Geneva, New York, Nairobi and Amman carry structural collision
         risk: multiple organisations drawing from the same finite local
         labour pool in the same window. Location diversification, remote
         mandates, or coordinated posting calendars reduce internal
