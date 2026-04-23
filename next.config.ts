@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  devIndicators: false,
   // Cron routes call the Supabase Edge Function at build-pull time; allow longer
   // server-action bodies since we return findings JSON for ad-hoc inspection.
   experimental: {

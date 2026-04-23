@@ -26,7 +26,7 @@ export async function Section01Shape() {
   const topTwoPct = Math.round(topTwoShare * 100);
 
   return (
-    <section className="mt-[120px]">
+    <section className="mt-16">
       <div className="mx-auto max-w-column px-6">
         <p className="text-[11px] uppercase tracking-[0.2em] text-ink-muted">
           01
@@ -75,7 +75,7 @@ function BarList({
             key={r.segment}
             className="grid grid-cols-[200px_1fr] items-center gap-4"
           >
-            <span className="text-right text-[13px] text-ink-primary leading-tight">
+            <span className="text-right text-[13px] font-medium text-ink-primary leading-tight">
               {r.label}
             </span>
             <div className="relative h-[26px]">

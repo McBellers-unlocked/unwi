@@ -37,13 +37,14 @@ export async function Hero() {
           nine segments.
         </p>
         <p className="mt-8 text-[11px] uppercase tracking-[0.15em] text-ink-muted">
-          UN Workforce Intelligence · Q1 2026 Digital Issue · {formatDataAsOf(meta?.computedAt ?? null).replace(/^Data as of /, "")}
+          UN Workforce Intelligence · Q1 2026 Digital Issue ·
+          {" "}
+          {formatDataAsOf(meta?.computedAt ?? null).replace(/^Data as of /, "")}
         </p>
         <div className="mt-8 h-[2px] w-full bg-highlight" />
-        <p className="mt-10 font-serif text-[1.375rem] leading-[1.45] text-ink-primary">
-          Nine in ten UN agencies are independently hiring for the same handful
-          of digital roles, with no visible coordination — even as aggregate
-          digital headcount falls.
+        <p className="mt-8 font-serif text-[1.25rem] leading-[1.5] text-ink-primary">
+          Every UN Common System agency of any size is hiring digital talent
+          in Q1 2026. The problem is that many are hiring the same talent.
         </p>
       </div>
     </header>
