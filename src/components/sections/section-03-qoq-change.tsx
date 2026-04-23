@@ -28,8 +28,10 @@ export async function Section03QoQChange() {
   const topWin = winners[0];
   const topLose = losers[losers.length - 1];
 
-  const commonSources =
-    manifest?.apples_to_apples?.common_sources?.length ?? 0;
+  const sources = manifest?.apples_to_apples?.common_sources ?? [];
+  const commonSources = sources.length;
+  const visible = sources.slice(0, 8).join(", ");
+  const overflow = sources.length > 8 ? `, …and ${sources.length - 8} more` : "";
 
   return (
     <SectionShell
@@ -56,6 +58,12 @@ export async function Section03QoQChange() {
       }
     >
       <ComparatorBar data={data} />
+      {commonSources > 0 && (
+        <p className="mt-2 text-[11px] text-muted leading-snug">
+          Common sources ({commonSources}): {visible}
+          {overflow}
+        </p>
+      )}
     </SectionShell>
   );
 }
