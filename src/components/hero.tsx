@@ -29,7 +29,9 @@ export async function Hero() {
     <header className="pt-24">
       <div className="mx-auto max-w-column px-6">
         <h1 className="font-serif text-hero text-ink-primary tracking-tight">
-          The UN system is competing with itself for digital talent
+          The UN system is competing
+          <br />
+          with itself for digital talent
         </h1>
         <p className="mt-6 font-serif italic text-standfirst text-ink-muted">
           A classifier-measured read of {totalPostings} UN Common System

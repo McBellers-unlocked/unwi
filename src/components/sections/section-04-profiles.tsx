@@ -28,18 +28,20 @@ export async function Section04Profiles() {
         <div className="mt-12 flex items-center gap-10">
           <span
             className="numeric font-serif text-ink-primary leading-[0.9]"
-            style={{ fontSize: "160px", fontWeight: 400 }}
+            style={{ fontSize: "180px", fontWeight: 400 }}
           >
             {feature.organisation_count}
           </span>
           <div className="flex-1">
-            <p className="text-[17px] text-ink-muted leading-snug">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-ink-muted">
               organisations independently hiring
             </p>
-            <p className="mt-1 font-serif text-[30px] text-ink-primary leading-tight">
+            <p className="mt-2 font-serif text-[32px] font-semibold text-ink-primary leading-[1.1]">
               {feature.canonical_title}
             </p>
-            <p className="mt-1 text-[15px] text-ink-muted">in Q1 2026</p>
+            <p className="mt-2 text-[11px] uppercase tracking-[0.18em] text-ink-muted">
+              in Q1 2026
+            </p>
           </div>
         </div>
 

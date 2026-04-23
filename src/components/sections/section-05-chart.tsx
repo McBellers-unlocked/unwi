@@ -58,11 +58,12 @@ export function ConcurrencyChart({ segments }: { segments: Segment[] }) {
     return { month: m, v: mx };
   });
 
-  const ymax =
-    Math.max(
-      0,
-      ...segments.flatMap((s) => s.points.map((p) => p.distinct_organisations)),
-    ) + 2;
+  // Give the peak annotation breathing room above the highest observed value.
+  const dataMax = Math.max(
+    0,
+    ...segments.flatMap((s) => s.points.map((p) => p.distinct_organisations)),
+  );
+  const ymax = Math.max(25, dataMax + 5);
 
   const xScale = (m: string) => {
     const i = months.indexOf(m);

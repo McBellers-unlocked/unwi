@@ -39,10 +39,8 @@ export async function Section03Shift() {
         </div>
 
         <p className="mt-6 text-caption text-ink-muted">
-          Shares are calculated across 11 sources present in both Q4 2025 and
-          Q1 2026 to avoid coverage bias. Common sources: un-careers,
-          unicef:pageup, wfp:workday, unops:marketplace, WHO, WIPO, fao.org,
-          careers.icao.int, oracle-hcm:CX_1001, wayback-unicef, wayback-unops.
+          Shares calculated across 11 sources present in both Q4 2025 and Q1
+          2026. See methodology for full source list.
         </p>
       </div>
     </section>
