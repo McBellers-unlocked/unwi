@@ -27,7 +27,7 @@ export function QoQDiverge({ rows }: { rows: Row[] }) {
             <DivergingBar delta={r.deltaPp} domain={domain} />
           </div>
           {r.annotation && (
-            <p className="ml-[216px] mt-[2px] text-[12px] italic text-ink-muted">
+            <p className="ml-[216px] mt-1 text-[13px] font-medium text-ink-primary">
               {r.annotation}
             </p>
           )}

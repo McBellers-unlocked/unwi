@@ -1,77 +1,42 @@
-import { SectionShell } from "@/components/section-shell";
-
 const NON_DIGITAL_SEGMENTS = [
-  {
-    name: "Humanitarian & Emergency Response",
-    desc: "Emergency coordination, relief operations, protection.",
-  },
-  {
-    name: "Climate & Environment",
-    desc: "Mitigation, adaptation, biodiversity, sustainability.",
-  },
-  {
-    name: "Public Health",
-    desc: "Clinical, epidemiology, community health programming.",
-  },
-  {
-    name: "Education",
-    desc: "Curriculum, access, pedagogy, teacher development.",
-  },
-  {
-    name: "Social Policy & Protection",
-    desc: "Cash transfers, social safety nets, child protection.",
-  },
-  {
-    name: "Legal & Human Rights",
-    desc: "International law, advocacy, rights monitoring.",
-  },
-  {
-    name: "Governance & Peacebuilding",
-    desc: "Democratic institutions, mediation, rule of law.",
-  },
-  {
-    name: "Finance & Economics",
-    desc: "Macro, development finance, audit, budget.",
-  },
-  {
-    name: "Supply Chain & Operations",
-    desc: "Procurement, logistics, field operations.",
-  },
-  {
-    name: "HR & Talent",
-    desc: "Workforce planning, talent acquisition, diversity.",
-  },
+  "Humanitarian & Emergency Response",
+  "Climate & Environment",
+  "Public Health",
+  "Education",
+  "Social Policy & Protection",
+  "Legal & Human Rights",
+  "Governance & Peacebuilding",
+  "Finance & Economics",
+  "Supply Chain & Operations",
+  "HR & Talent",
 ];
 
 export function Section10Roadmap() {
   return (
-    <SectionShell
-      id="section-10"
-      number={10}
-      title="Coming in Q3 2026: Full UN Workforce Coverage"
-      subtitle="Same methodology. Same locked-taxonomy discipline. Parallel classifier in active development."
-      variant="navy"
-    >
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {NON_DIGITAL_SEGMENTS.map((s) => (
-          <div
-            key={s.name}
-            className="border border-teal/40 rounded-md p-4 bg-navy-soft/40"
-          >
-            <p className="font-serif text-white text-base mb-1">{s.name}</p>
-            <p className="text-sm text-teal-soft leading-snug">{s.desc}</p>
-          </div>
-        ))}
+    <section className="mt-24">
+      <div className="mx-auto max-w-column px-6">
+        <p className="text-[11px] uppercase tracking-[0.2em] text-ink-muted">
+          10
+        </p>
+        <h2 className="mt-4 font-serif text-section text-ink-primary tracking-tight">
+          Coming Q3 2026
+        </h2>
+        <p className="mt-4 font-serif italic text-standfirst text-ink-muted">
+          Full UN workforce coverage, same methodology, same classifier
+          discipline.
+        </p>
+
+        <ul className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-4">
+          {NON_DIGITAL_SEGMENTS.map((s) => (
+            <li key={s} className="flex items-baseline gap-3">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-highlight shrink-0 translate-y-[6px]" />
+              <span className="font-serif text-[17px] text-ink-primary leading-snug">
+                {s}
+              </span>
+            </li>
+          ))}
+        </ul>
       </div>
-      <p className="mt-8 text-sm text-teal-soft italic leading-relaxed">
-        The classifier seam is intentional. A new taxonomy ships as a drop-in
-        replacement; data pipeline, Aurora schema, and dashboard shell are
-        reused. Non-digital findings will publish under{" "}
-        <code className="font-mono text-teal text-xs">
-          snapshots/latest/nondigital/
-        </code>
-        .
-      </p>
-    </SectionShell>
+    </section>
   );
 }

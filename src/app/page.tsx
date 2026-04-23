@@ -6,6 +6,11 @@ import { Section02Demand } from "@/components/sections/section-02-demand";
 import { Section03Shift } from "@/components/sections/section-03-shift";
 import { Section04Profiles } from "@/components/sections/section-04-profiles";
 import { Section05Concurrency } from "@/components/sections/section-05-concurrency";
+import { Section06Map } from "@/components/sections/section-06-map";
+import { Section07BuildBuy } from "@/components/sections/section-07-buildbuy";
+import { Section08Signal } from "@/components/sections/section-08-signal";
+import { Section09Methodology } from "@/components/sections/section-09-methodology";
+import { Section10Roadmap } from "@/components/sections/section-10-roadmap";
 import { getSnapshotMeta } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +36,11 @@ export default async function LongformPage() {
             <Section03Shift />
             <Section04Profiles />
             <Section05Concurrency />
+            <Section06Map />
+            <Section07BuildBuy />
+            <Section08Signal />
+            <Section09Methodology />
+            <Section10Roadmap />
           </>
         )}
       </main>

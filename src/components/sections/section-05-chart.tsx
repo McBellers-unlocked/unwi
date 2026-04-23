@@ -187,7 +187,6 @@ export function ConcurrencyChart({ segments }: { segments: Segment[] }) {
             y={yScale(bandLabel.v) - 6}
             fontSize={12}
             fill="#66788A"
-            fontStyle="italic"
           >
             All other segments
           </text>
@@ -255,7 +254,6 @@ export function ConcurrencyChart({ segments }: { segments: Segment[] }) {
               y={yScale(dataAiPeak.distinct_organisations) - 14}
               fontSize={13}
               fontWeight={500}
-              fontStyle="italic"
               fill="#0A3C5A"
               textAnchor="middle"
             >
