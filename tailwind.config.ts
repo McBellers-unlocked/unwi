@@ -7,27 +7,41 @@ const config: Config = {
     "./src/components/**/*.{ts,tsx}",
   ],
   theme: {
-    container: {
-      center: true,
-      padding: "1.5rem",
-      screens: { "2xl": "1440px" },
-    },
     extend: {
       colors: {
-        navy: "#0F2540",
-        "navy-soft": "#1c3a63",
-        teal: "#4DAFA8",
-        "teal-soft": "#7dc6c0",
-        slate: "#5A6C7D",
-        ink: "#0F2540",
-        muted: "#5A6C7D",
-        "muted-soft": "#F5F7F8",
-        "panel-line": "#e5e7eb",
-        "takeaway-bg": "#F5F7F8",
+        // FT canvas
+        canvas: "#FFF1E5",
+        surface: "#FAEBDA",
+        // Ink
+        "ink-primary": "#0A3C5A",
+        "ink-body": "#33302E",
+        "ink-muted": "#66788A",
+        // Data colours
+        anchor: "#0A3C5A",
+        highlight: "#00A0B0",
+        claret: "#990F3D",
+        // Lines
+        rule: "#E5D9C8",
       },
       fontFamily: {
         serif: ["var(--font-serif)", "Georgia", "serif"],
-        sans: ["var(--font-sans)", "system-ui", "sans-serif"],
+        sans: ["var(--font-sans)", "-apple-system", "system-ui", "sans-serif"],
+      },
+      maxWidth: {
+        column: "760px",
+        wide: "1200px",
+      },
+      fontSize: {
+        // Map against the spec. Values are in rem (16px base).
+        "hero": ["3rem", { lineHeight: "1.05", fontWeight: "600" }],           // 48pt
+        "section": ["2.25rem", { lineHeight: "1.15", fontWeight: "600" }],    // 36pt
+        "chart-title": ["1.375rem", { lineHeight: "1.25", fontWeight: "600" }], // 22pt
+        "feature": ["10rem", { lineHeight: "0.95", fontWeight: "400" }],      // 160pt
+        "standfirst": ["1.25rem", { lineHeight: "1.45", fontWeight: "400" }], // 20pt
+        "body": ["1rem", { lineHeight: "1.6", fontWeight: "400" }],           // 16pt
+        "caption": ["0.8125rem", { lineHeight: "1.5", fontWeight: "400" }],   // 13pt
+        "axis": ["0.75rem", { lineHeight: "1.4", fontWeight: "400" }],        // 12pt
+        "annotation": ["0.8125rem", { lineHeight: "1.35", fontWeight: "500" }], // 13pt
       },
     },
   },

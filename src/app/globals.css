@@ -4,35 +4,64 @@
 
 :root {
   color-scheme: light;
+  --canvas: #FFF1E5;
+  --surface: #FAEBDA;
+  --ink-primary: #0A3C5A;
+  --ink-body: #33302E;
+  --ink-muted: #66788A;
+  --anchor: #0A3C5A;
+  --highlight: #00A0B0;
+  --claret: #990F3D;
+  --rule: #E5D9C8;
 }
 
 html,
 body {
-  background: #ffffff;
-  color: #0F2540;
+  background: var(--canvas);
+  color: var(--ink-body);
+  font-feature-settings: "tnum" on, "lnum" on;
 }
 
-/* Bloomberg-terminal-meets-policy-brief type scale. */
-h1, h2, h3 {
-  font-family: var(--font-serif), Georgia, serif;
-}
 body {
-  font-family: var(--font-sans), system-ui, sans-serif;
+  font-family: var(--font-sans), -apple-system, system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
 }
 
-.panel {
-  background: #ffffff;
-  border: 1px solid theme("colors.panel-line");
-  border-radius: 6px;
-}
-
-.stat-value {
+h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-serif), Georgia, serif;
-  font-weight: 600;
-  font-size: 2rem;
-  line-height: 1.1;
+  color: var(--ink-primary);
 }
 
-.module-anchor {
-  scroll-margin-top: 72px;
+/* Numbers inside charts and feature treatments get serif + tabular alignment. */
+.numeric {
+  font-family: var(--font-serif), Georgia, serif;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* Tight tracking for numeric axis ticks. */
+.axis-label {
+  font-family: var(--font-sans), -apple-system, system-ui, sans-serif;
+  font-size: 12px;
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.scroll-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: rgba(102, 120, 138, 0.15);
+  z-index: 50;
+  pointer-events: none;
+}
+
+.scroll-progress__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0;
+  background: var(--highlight);
+  transition: width 80ms linear;
 }
