@@ -4,7 +4,7 @@ import {
   getSegmentDistribution,
   SEGMENT_LABELS,
 } from "@/lib/data";
-import { SegmentRolesBar } from "./section-02-chart";
+import { SegmentScatter } from "./section-02-chart";
 
 export async function Section02DemandClusters() {
   const [dist, orgs] = await Promise.all([
@@ -33,7 +33,7 @@ export async function Section02DemandClusters() {
     .sort((a, b) => b.roles - a.roles);
 
   const top = data[0];
-  const second = data[1];
+  const policy = data.find((d) => d.segment === "POLICY_ADVISORY");
   const breadth = data.filter((d) => d.roles > 0).length;
 
   return (
@@ -45,21 +45,23 @@ export async function Section02DemandClusters() {
       takeaway={
         <>
           <p>
-            <strong>
-              {top?.label ?? "—"}
-            </strong>{" "}
-            is the largest segment by volume: {top?.roles ?? 0} roles across{" "}
-            {top?.orgs ?? 0} organisations.
+            <strong>{top?.label ?? "—"}</strong> leads on both volume (
+            {top?.roles ?? 0} roles) and participation ({top?.orgs ?? 0}{" "}
+            organisations) — the segment the entire UN system is hiring in.
           </p>
           <p>
-            {second?.label ?? "—"} follows at {second?.roles ?? 0} roles.
+            <strong>{policy?.label ?? "Digital Policy &amp; Advisory"}</strong>{" "}
+            shows concentrated hiring ({policy?.roles ?? 0} roles across{" "}
+            {policy?.orgs ?? 0} orgs).
+          </p>
+          <p>
             Systemic breadth: {breadth} of 9 segments are actively hiring this
             quarter.
           </p>
         </>
       }
     >
-      <SegmentRolesBar data={data} />
+      <SegmentScatter data={data} />
     </SectionShell>
   );
 }
