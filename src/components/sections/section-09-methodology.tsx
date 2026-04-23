@@ -6,8 +6,24 @@ export async function Section09Methodology() {
     getCutManifest(),
   ]);
 
-  const sha = (meta?.classifierVersionSha ?? "").slice(0, 8) || "7f702e1d";
+  const sha = (meta?.classifierVersionSha ?? "").slice(0, 7) || "7f702e1";
   const commonSources = manifest?.apples_to_apples?.common_sources ?? [];
+  const sourcesForDisplay: string[] =
+    commonSources.length > 0
+      ? commonSources
+      : [
+          "un-careers",
+          "unicef:pageup",
+          "wfp:workday",
+          "unops:marketplace",
+          "WHO",
+          "WIPO",
+          "fao.org",
+          "careers.icao.int",
+          "oracle-hcm:CX_1001",
+          "wayback-unicef",
+          "wayback-unops",
+        ];
 
   return (
     <section className="mt-24">
@@ -23,7 +39,7 @@ export async function Section09Methodology() {
           <dl className="space-y-5">
             <Item
               term="Classifier"
-              description={`v2 (SHA ${sha}…), 0.997 precision on 2,676-row gold sample`}
+              description={`v2 (SHA ${sha}), 0.997 precision on 2,676-row gold sample`}
             />
             <Item term="Taxonomy" description="9 segments, locked" />
             <Item
@@ -40,16 +56,20 @@ export async function Section09Methodology() {
             <Item term="Scope filter" description="12,918 in / 2,465 out" />
             <Item
               term="Apples-to-apples sources"
-              description={String(commonSources.length || 11)}
+              description={String(sourcesForDisplay.length)}
             />
-            <Item
-              term="Sources"
-              description={
-                commonSources.length > 0
-                  ? commonSources.join(", ")
-                  : "un-careers, unicef:pageup, wfp:workday, unops:marketplace, WHO, WIPO, fao.org, careers.icao.int, oracle-hcm:CX_1001, wayback-unicef, wayback-unops"
-              }
-            />
+            <div>
+              <dt className="text-[11px] uppercase tracking-[0.18em] text-ink-muted">
+                Sources
+              </dt>
+              <dd className="mt-1">
+                <ul className="text-[14px] text-ink-primary leading-snug space-y-[2px]">
+                  {sourcesForDisplay.map((s) => (
+                    <li key={s}>{s}</li>
+                  ))}
+                </ul>
+              </dd>
+            </div>
           </dl>
         </div>
 

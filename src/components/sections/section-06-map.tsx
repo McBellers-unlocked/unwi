@@ -1,6 +1,6 @@
 import { promises as fs } from "fs";
 import path from "path";
-import { getGeography } from "@/lib/data";
+import { getGeography, getSnapshotMeta } from "@/lib/data";
 import { WorldMap } from "./section-06-worldmap";
 
 interface Station {
@@ -26,7 +26,11 @@ function normaliseKey(loc: string): string {
 }
 
 export async function Section06Map() {
-  const [geo, stations] = await Promise.all([getGeography(), loadStations()]);
+  const [geo, stations, meta] = await Promise.all([
+    getGeography(),
+    loadStations(),
+    getSnapshotMeta(),
+  ]);
 
   const points = geo
     .map((g) => {
@@ -42,10 +46,14 @@ export async function Section06Map() {
     .filter((p): p is NonNullable<typeof p> => p !== null)
     .sort((a, b) => b.count - a.count);
 
-  const total = geo.reduce((s, g) => s + g.count, 0);
   const top5 = points.slice(0, 5);
   const top5Share = top5.reduce((s, p) => s + p.count, 0);
-  const top5Pct = total > 0 ? Math.round((top5Share / total) * 100) : 0;
+  // Denominator is the full digital-postings count from the snapshot, not the
+  // sum of location-tagged rows — a share-of-hiring claim reads against the
+  // headline digital total, not the subset we could geocode.
+  const digitalTotal = meta?.digitalPostings ?? 0;
+  const top5Pct =
+    digitalTotal > 0 ? Math.round((top5Share / digitalTotal) * 100) : 0;
 
   return (
     <section className="mt-24">
