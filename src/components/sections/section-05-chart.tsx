@@ -15,10 +15,14 @@ const PALETTE = ["#0F2540", "#4DAFA8", "#5A6C7D", "#1c3a63", "#7dc6c0", "#B07D4A
 export function ConcurrencyChart({
   data,
   series,
+  highlightKeys,
 }: {
   data: Record<string, number | string>[];
   series: { key: string; label: string }[];
+  highlightKeys?: string[];
 }) {
+  const highlighted = new Set(highlightKeys ?? []);
+  const anyHighlighted = highlighted.size > 0;
   return (
     <div className="w-full h-[380px]">
       <ResponsiveContainer>
@@ -28,18 +32,22 @@ export function ConcurrencyChart({
           <YAxis stroke="#5A6C7D" fontSize={11} />
           <Tooltip contentStyle={{ fontSize: 12, borderRadius: 6 }} />
           <Legend wrapperStyle={{ fontSize: 12 }} />
-          {series.map((s, i) => (
-            <Line
-              key={s.key}
-              type="monotone"
-              dataKey={s.key}
-              name={s.label}
-              stroke={PALETTE[i % PALETTE.length]}
-              strokeWidth={2}
-              dot={false}
-              activeDot={{ r: 4 }}
-            />
-          ))}
+          {series.map((s, i) => {
+            const isHighlight = !anyHighlighted || highlighted.has(s.key);
+            return (
+              <Line
+                key={s.key}
+                type="monotone"
+                dataKey={s.key}
+                name={s.label}
+                stroke={PALETTE[i % PALETTE.length]}
+                strokeWidth={isHighlight ? 2.5 : 2}
+                strokeOpacity={isHighlight ? 1 : 0.3}
+                dot={false}
+                activeDot={{ r: 4 }}
+              />
+            );
+          })}
         </LineChart>
       </ResponsiveContainer>
     </div>

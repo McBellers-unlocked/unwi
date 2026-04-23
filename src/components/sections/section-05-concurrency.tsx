@@ -34,6 +34,7 @@ export async function Section05Concurrency() {
   }));
 
   const topPeak = top6[0];
+  const highlightKeys = top6.slice(0, 2).map((s) => s.segment);
 
   return (
     <SectionShell
@@ -60,7 +61,11 @@ export async function Section05Concurrency() {
         </>
       }
     >
-      <ConcurrencyChart data={data} series={seriesMeta} />
+      <ConcurrencyChart
+        data={data}
+        series={seriesMeta}
+        highlightKeys={highlightKeys}
+      />
     </SectionShell>
   );
 }
