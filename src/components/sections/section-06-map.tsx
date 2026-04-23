@@ -164,7 +164,7 @@ function Bubbles({
             >
               <title>{`${p.name}: ${p.count} roles, ${p.orgs} orgs`}</title>
             </circle>
-            {showLabels && p.rank <= 8 && (
+            {showLabels && p.rank <= (region === "global" ? 5 : 8) && (
               <text
                 x={place.dx}
                 y={place.dy}
@@ -262,7 +262,7 @@ export function DutyStationMaps({
           <ComposableMap
             projection="geoEqualEarth"
             width={640}
-            height={360}
+            height={432}
             projectionConfig={{ scale: 135 }}
             style={{ width: "100%", height: "auto" }}
           >
