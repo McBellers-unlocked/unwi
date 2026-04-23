@@ -7,6 +7,7 @@ COPY classifier_v2.py ${LAMBDA_TASK_ROOT}/
 COPY classify_aggregator.py ${LAMBDA_TASK_ROOT}/
 COPY build_snapshots.py ${LAMBDA_TASK_ROOT}/
 COPY handler.py ${LAMBDA_TASK_ROOT}/
+COPY un_system.py ${LAMBDA_TASK_ROOT}/
 COPY duty_stations.json ${LAMBDA_TASK_ROOT}/
 
 CMD ["handler.lambda_handler"]
