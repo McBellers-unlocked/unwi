@@ -18,6 +18,16 @@ const WORLD_TOPO = "/maps/countries-110m.json";
 // European bounding box — used to pull the cluster out for the circular inset.
 const EUROPE_BBOX = { lngMin: -12, lngMax: 30, latMin: 35, latMax: 60 };
 
+// Aurora's geography rows carry "City, Country" ("Geneva, Switzerland"); the
+// local seed carries bare "Geneva"; some UNICC rows arrive as "Valencia (Spain)".
+// Offset dicts key on the short city form, so normalise before lookup and
+// before rendering so labels survive both shapes.
+function labelKey(name: string): string {
+  const stripped = name.replace(/\(.+?\)/g, "");
+  const first = stripped.split(",")[0] ?? stripped;
+  return first.trim();
+}
+
 const LABEL_OFFSETS: Record<
   string,
   { dx: number; dy: number; anchor: "start" | "middle" | "end" }
@@ -119,7 +129,8 @@ export function WorldMap({ points }: { points: Point[] }) {
         })}
 
         {points.slice(0, 5).map((p) => {
-          const off = LABEL_OFFSETS[p.name];
+          const key = labelKey(p.name);
+          const off = LABEL_OFFSETS[key];
           if (!off) return null;
           const r = radiusFromCount(p.count, maxCount);
           const dist = Math.sqrt(off.dx * off.dx + off.dy * off.dy) || 1;
@@ -150,7 +161,7 @@ export function WorldMap({ points }: { points: Point[] }) {
                   strokeLinejoin: "round",
                 }}
               >
-                {p.name} · {p.count}
+                {key} · {p.count}
               </text>
             </Marker>
           );
@@ -223,7 +234,8 @@ function EuropeInset({
         })}
 
         {points.map((p) => {
-          const off = INSET_LABEL_OFFSETS[p.name];
+          const key = labelKey(p.name);
+          const off = INSET_LABEL_OFFSETS[key];
           if (!off) return null;
           const r = insetRadius(p.count, maxCount);
           const dist = Math.sqrt(off.dx * off.dx + off.dy * off.dy) || 1;
@@ -257,7 +269,7 @@ function EuropeInset({
                   strokeLinejoin: "round",
                 }}
               >
-                {p.name}
+                {key}
               </text>
             </Marker>
           );
