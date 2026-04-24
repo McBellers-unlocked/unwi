@@ -22,3 +22,6 @@ next-env.d.ts
 findings.json
 findings-*.json
 tsconfig.tsbuildinfo
+
+# Local design-review screenshots (not data)
+.screenshots/

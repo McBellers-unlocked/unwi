@@ -42,6 +42,14 @@ ANCHOR_DATE = date(2025, 8, 1)
 PRIMARY_PERIOD = (date(2026, 1, 1), date(2026, 3, 31))
 COMPARATOR_PERIOD = (date(2025, 10, 1), date(2025, 12, 31))
 
+# Sources explicitly excluded from the apples-to-apples QoQ comparison even
+# when they appear in both primary and comparator periods. UNICC was absent
+# from the Supabase feed until Q1 2026 and was backfilled manually from
+# UNICConnect; including it in QoQ would conflate ingest-coverage changes
+# with real hiring-mix shifts. Section 03 cites this exclusion in its
+# methodology caveat.
+COMPARATOR_EXCLUDE_SOURCES: set[str] = {"unicc:uniqtalent"}
+
 SEGMENT_ORDER = [
     "CYBER",
     "DATA_AI",
@@ -202,7 +210,7 @@ def build_headline_numbers(
 
     primary_sources = {r.source for r in primary_rows if r.source}
     comp_sources = {r.source for r in comp_rows if r.source}
-    common_sources = primary_sources & comp_sources
+    common_sources = (primary_sources & comp_sources) - COMPARATOR_EXCLUDE_SOURCES
 
     apples_primary = [r for r in primary_rows if r.source in common_sources]
     apples_comp = [r for r in comp_rows if r.source in common_sources]
@@ -434,7 +442,7 @@ def build_comparator_segment_shares(
 
     primary_sources = {r.source for r in primary_rows if r.source}
     comp_sources = {r.source for r in comp_rows if r.source}
-    common_sources = primary_sources & comp_sources
+    common_sources = (primary_sources & comp_sources) - COMPARATOR_EXCLUDE_SOURCES
 
     apples_primary = [
         r for r in primary_rows if r.segment and r.source in common_sources
@@ -646,7 +654,10 @@ def build_cut_manifest(
     comp_rows = [r for r in rows if _in_period(r.posted_date, comparator)]
     primary_sources = {r.source for r in primary_rows if r.source}
     comp_sources = {r.source for r in comp_rows if r.source}
-    common = primary_sources & comp_sources
+    common = (primary_sources & comp_sources) - COMPARATOR_EXCLUDE_SOURCES
+    excluded_by_policy = sorted(
+        COMPARATOR_EXCLUDE_SOURCES & (primary_sources & comp_sources)
+    )
     only_primary = sorted(primary_sources - comp_sources)
     only_comp = sorted(comp_sources - primary_sources)
 
@@ -685,6 +696,7 @@ def build_cut_manifest(
         "apples_to_apples": {
             "common_sources": sorted(common),
             "common_source_count": len(common),
+            "excluded_by_policy": excluded_by_policy,
             "excluded_sources_primary_only": only_primary,
             "excluded_sources_comparator_only": only_comp,
             "primary_common_sources_total_rows": sum(by_src_primary.values()),

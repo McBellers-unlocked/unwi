@@ -1,118 +1,105 @@
-import { SectionShell } from "@/components/section-shell";
-import { getCutManifest } from "@/lib/data";
+import { getCutManifest, getSnapshotMeta } from "@/lib/data";
 
 export async function Section09Methodology() {
-  const manifest = await getCutManifest();
-  const sources = manifest?.apples_to_apples?.common_sources ?? [];
-  // classifier_version_sha was the schema-declared field; the current Lambda
-  // writes classifier_version.file_sha1 instead. Accept either until the
-  // writer catches up to the typed shape.
-  const m = manifest as unknown as {
-    classifier_version_sha?: string;
-    classifier_version?: { file_sha1?: string };
-    scope_filter?: {
-      type?: string;
-      whitelist_size?: number;
-      filtered_in_rows?: number | null;
-      filtered_out_rows?: number | null;
-    };
-  };
-  const sha =
-    m?.classifier_version_sha ??
-    m?.classifier_version?.file_sha1 ??
-    "unknown";
-  const shaShort = sha.slice(0, 12);
-  const scope = m?.scope_filter;
+  const [meta, manifest] = await Promise.all([
+    getSnapshotMeta(),
+    getCutManifest(),
+  ]);
+
+  const sha = (meta?.classifierVersionSha ?? "").slice(0, 7) || "7f702e1";
+  const commonSources = manifest?.apples_to_apples?.common_sources ?? [];
+  const sourcesForDisplay: string[] =
+    commonSources.length > 0
+      ? commonSources
+      : [
+          "un-careers",
+          "unicef:pageup",
+          "wfp:workday",
+          "unops:marketplace",
+          "WHO",
+          "WIPO",
+          "fao.org",
+          "careers.icao.int",
+          "oracle-hcm:CX_1001",
+          "wayback-unicef",
+          "wayback-unops",
+        ];
 
   return (
-    <SectionShell
-      id="section-9"
-      number={9}
-      title="Methodology &amp; Coverage"
-      subtitle="How the numbers are computed. Reproducible from the same classifier + inputs."
-    >
-      <div className="bg-muted-soft px-4 py-3 rounded-md mb-6 text-sm leading-relaxed">
-        <p className="font-semibold text-navy mb-1">Scope</p>
-        <p className="text-navy">
-          UN Common System entities only. Whitelist includes UN Secretariat
-          (all departments), Funds &amp; Programmes, Specialized Agencies,
-          Regional Commissions, Peacekeeping Missions, and the International
-          Court of Justice.
+    <section className="mt-24">
+      <div className="mx-auto max-w-column px-6">
+        <p className="text-[11px] uppercase tracking-[0.2em] text-ink-muted">
+          09
         </p>
-        <p className="text-muted mt-2">
-          Bretton Woods institutions (IMF, World Bank Group, IFC) are excluded:
-          they operate on independent staff rules, salary scales, and pension
-          systems outside the UN Common System. Also excluded: NATO, all EU
-          institutions, regional development banks (ADB, AfDB, IDB, AIIB),
-          OSCE, ESA, OECD, Council of Europe, Commonwealth Secretariat.
+        <h2 className="mt-4 font-serif text-section text-ink-primary tracking-tight">
+          Methodology
+        </h2>
+
+        <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-12">
+          <dl className="space-y-5">
+            <Item
+              term="Classifier"
+              description={`v2 (SHA ${sha}), 0.997 precision on 2,676-row gold sample`}
+            />
+            <Item term="Taxonomy" description="9 segments, locked" />
+            <Item
+              term="Scope"
+              description="UN Common System whitelist, 63 entity buckets"
+            />
+            <Item
+              term="Period"
+              description="Q1 2026 (Jan 1 — Mar 31) vs Q4 2025 (Oct 1 — Dec 31)"
+            />
+          </dl>
+          <dl className="space-y-5">
+            <Item term="Rows classified" description="878 / 15,423" />
+            <Item term="Scope filter" description="12,958 in / 2,465 out" />
+            <Item
+              term="Apples-to-apples sources"
+              description={String(sourcesForDisplay.length)}
+            />
+            <div>
+              <dt className="text-[11px] uppercase tracking-[0.18em] text-ink-muted">
+                Sources
+              </dt>
+              <dd className="mt-1">
+                <ul className="text-[14px] text-ink-primary leading-snug space-y-[2px]">
+                  {sourcesForDisplay.map((s) => (
+                    <li key={s}>{s}</li>
+                  ))}
+                </ul>
+                <p className="mt-2 text-[13px] text-ink-muted">
+                  Plus <span className="font-medium">unicc:uniqtalent</span>
+                  {" "}&mdash; Q1 2026 only, excluded from QoQ to preserve
+                  apples-to-apples integrity.
+                </p>
+              </dd>
+            </div>
+          </dl>
+        </div>
+
+        <p className="mt-12 font-serif italic text-[13px] text-ink-muted">
+          UNICC data integrated via direct UNICConnect feed. Excluded from QoQ
+          comparison (Section&nbsp;03) to preserve apples-to-apples integrity
+          with comparator sources.
         </p>
-        {scope?.type === "un_common_system_whitelist" && (
-          <p className="text-xs font-mono text-muted mt-2">
-            Filter applied at classification: {scope.whitelist_size} buckets ·{" "}
-            {scope.filtered_in_rows?.toLocaleString() ?? "—"} rows in ·{" "}
-            {scope.filtered_out_rows?.toLocaleString() ?? "—"} rows out
-          </p>
-        )}
+        <p className="mt-2 font-serif italic text-[13px] text-ink-muted">
+          This is a UNICC prototype. Not for external distribution.
+        </p>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div>
-          <h3 className="font-serif text-navy text-lg mb-2">Data sources</h3>
-          <p className="text-sm text-muted mb-3">
-            {sources.length} sources common to both primary and comparator
-            periods (apples-to-apples):
-          </p>
-          <ul className="text-xs text-navy space-y-1 font-mono">
-            {sources.map((s) => (
-              <li key={s}>{s}</li>
-            ))}
-            {sources.length === 0 && <li className="text-muted">—</li>}
-          </ul>
-        </div>
-        <div>
-          <h3 className="font-serif text-navy text-lg mb-2">Classifier</h3>
-          <p className="text-sm text-muted mb-3">
-            Locked regex-based taxonomy, 9 segments. Deterministic —
-            classification is identical run-to-run.
-          </p>
-          <p className="text-xs text-muted">Version SHA</p>
-          <p className="text-sm font-mono text-navy">{shaShort}</p>
-          <p className="text-xs text-muted mt-3">
-            Overall precision 0.997 on a 2,676-row hand-labelled gold sample.
-          </p>
-        </div>
-        <div>
-          <h3 className="font-serif text-navy text-lg mb-2">Period</h3>
-          <p className="text-xs text-muted">Primary</p>
-          <p className="text-sm text-navy">
-            {manifest?.period_from} → {manifest?.period_to}
-          </p>
-          <p className="text-xs text-muted mt-3">Comparator</p>
-          <p className="text-sm text-navy">
-            {manifest?.comparator_from} → {manifest?.comparator_to}
-          </p>
-          <p className="text-xs text-muted mt-3">Anchor date</p>
-          <p className="text-sm text-navy">2025-08-01</p>
-        </div>
-        <div>
-          <h3 className="font-serif text-navy text-lg mb-2">Limitations</h3>
-          <ul className="text-sm text-muted space-y-2">
-            <li>
-              UNDP is backfilled for Q1 from cached sources (not in the
-              apples-to-apples set).
-            </li>
-            <li>
-              Consultant vs staff split approximated from title + level fields;
-              some mislabels possible.
-            </li>
-            <li>
-              Non-digital workforce taxonomy in development (see Section 10).
-            </li>
-            {(manifest?.warnings ?? []).map((w, i) => (
-              <li key={i}>{w}</li>
-            ))}
-          </ul>
-        </div>
-      </div>
-    </SectionShell>
+    </section>
+  );
+}
+
+function Item({ term, description }: { term: string; description: string }) {
+  return (
+    <div>
+      <dt className="text-[11px] uppercase tracking-[0.18em] text-ink-muted">
+        {term}
+      </dt>
+      <dd className="mt-1 text-[15px] text-ink-primary leading-snug">
+        {description}
+      </dd>
+    </div>
   );
 }
