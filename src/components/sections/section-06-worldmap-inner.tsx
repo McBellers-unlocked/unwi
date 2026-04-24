@@ -45,6 +45,7 @@ const INSET_LABEL_OFFSETS: Record<
   Vienna:     { dx: -20, dy:  -4, anchor: "end"    },
   Bonn:       { dx:  12, dy: -16, anchor: "start"  },
   Paris:      { dx:   0, dy:  16, anchor: "middle" },
+  Valencia:   { dx:  16, dy:   4, anchor: "start"  },
 };
 
 function radiusFromCount(count: number, maxCount: number): number {
