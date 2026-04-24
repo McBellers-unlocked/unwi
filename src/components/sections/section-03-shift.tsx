@@ -2,9 +2,9 @@ import { getComparatorShares, SEGMENT_LABELS } from "@/lib/data";
 import { QoQDiverge } from "./section-03-diverge";
 
 const ANNOTATIONS: Record<string, string> = {
-  ITOPS: "IT Ops gains 7.6 points of share, driven by 64 new roles",
+  ITOPS: "IT Ops gains 6.4 points of share, driven by 64 new roles",
   DATA_AI:
-    "Data & Analytics falls 6.7 points despite small absolute growth",
+    "Data & Analytics falls 7.0 points despite small absolute growth",
 };
 
 export async function Section03Shift() {
@@ -30,8 +30,8 @@ export async function Section03Shift() {
           IT Operations is surging. Data and Analytics is falling.
         </h2>
         <p className="mt-4 font-serif italic text-standfirst text-ink-muted">
-          Quarter-on-quarter share change by segment, restricted to the eleven
-          sources present in both periods.
+          Quarter-on-quarter share change by segment, restricted to the
+          nineteen sources present in both periods.
         </p>
 
         <div className="mt-8">
@@ -39,8 +39,9 @@ export async function Section03Shift() {
         </div>
 
         <p className="mt-6 text-caption text-ink-muted">
-          Shares calculated across 11 sources present in both Q4 2025 and Q1
-          2026. See methodology for full source list.
+          Shares calculated across 19 sources present in both Q4 2025 and Q1
+          2026. UNICC data excluded from this comparison to preserve
+          apples-to-apples integrity (see methodology for full source list).
         </p>
       </div>
     </section>

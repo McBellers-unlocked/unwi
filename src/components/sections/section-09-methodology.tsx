@@ -52,8 +52,8 @@ export async function Section09Methodology() {
             />
           </dl>
           <dl className="space-y-5">
-            <Item term="Rows classified" description="869 / 15,383" />
-            <Item term="Scope filter" description="12,918 in / 2,465 out" />
+            <Item term="Rows classified" description="878 / 15,423" />
+            <Item term="Scope filter" description="12,958 in / 2,465 out" />
             <Item
               term="Apples-to-apples sources"
               description={String(sourcesForDisplay.length)}
@@ -68,12 +68,22 @@ export async function Section09Methodology() {
                     <li key={s}>{s}</li>
                   ))}
                 </ul>
+                <p className="mt-2 text-[13px] text-ink-muted">
+                  Plus <span className="font-medium">unicc:uniqtalent</span>
+                  {" "}&mdash; Q1 2026 only, excluded from QoQ to preserve
+                  apples-to-apples integrity.
+                </p>
               </dd>
             </div>
           </dl>
         </div>
 
         <p className="mt-12 font-serif italic text-[13px] text-ink-muted">
+          UNICC data integrated via direct UNICConnect feed. Excluded from QoQ
+          comparison (Section&nbsp;03) to preserve apples-to-apples integrity
+          with comparator sources.
+        </p>
+        <p className="mt-2 font-serif italic text-[13px] text-ink-muted">
           This is a UNICC prototype. Not for external distribution.
         </p>
       </div>

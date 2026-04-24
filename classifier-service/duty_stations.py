@@ -33,6 +33,7 @@ STATIONS: dict[str, dict[str, float | str]] = {
     "beirut":           {"lat": 33.8938, "lng":  35.5018, "country": "Lebanon"},
     "bangkok":          {"lat": 13.7563, "lng": 100.5018, "country": "Thailand"},
     "valencia":         {"lat": 39.4699, "lng":  -0.3763, "country": "Spain"},
+    "brindisi":         {"lat": 40.6383, "lng":  17.9458, "country": "Italy"},
     "florence":         {"lat": 43.7696, "lng":  11.2558, "country": "Italy"},
     "gebze":            {"lat": 40.8000, "lng":  29.4400, "country": "Türkiye"},
     "madrid":           {"lat": 40.4168, "lng":  -3.7038, "country": "Spain"},

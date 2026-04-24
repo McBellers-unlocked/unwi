@@ -1,9 +1,12 @@
 {
-  "cut_generated_at": "2026-04-21T12:09:19+00:00",
-  "snapshot_path": "C:\\dev\\unlocked-path-finder\\data\\snapshots\\2026-04-21",
+  "cut_generated_at": "2026-04-24T06:56:10+00:00",
   "classifier_version": {
-    "file_sha1": "7f702e1d76597307ede1676a71c250b11841ed92",
-    "last_commit_touching_classifier": "67065db987bb9bc803879c1bc7fb76d3fdd7587d"
+    "file_sha1": "7fa78468b004aa45becce78513d3c1d16863d3b3"
+  },
+  "scope_filter": {
+    "type": "none",
+    "filtered_in_rows": null,
+    "filtered_out_rows": null
   },
   "period_from": "2026-01-01",
   "period_to": "2026-03-31",
@@ -32,6 +35,9 @@
       "wipo"
     ],
     "common_source_count": 19,
+    "excluded_by_policy": [
+      "unicc:uniqtalent"
+    ],
     "excluded_sources_primary_only": [
       "careers.wmo.int",
       "imf.wd5.myworkdayjobs.com",
