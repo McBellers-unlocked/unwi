@@ -5,7 +5,7 @@
  * everything is written by the Python classifier Lambda.
  */
 import "server-only";
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import {
   activeRoles,
@@ -13,6 +13,7 @@ import {
   geography,
   organisationBreakdown,
   segmentDistribution,
+  segmentWindowAggregates,
   snapshots,
   sourceCoverage,
   type CollisionProfiles,
@@ -228,6 +229,34 @@ export async function getSourceCoverage(): Promise<SourceCoverageRow[]> {
     totalCount: r.totalCount,
     digitalCount: r.digitalCount,
     shareOfDigital: Number(r.shareOfDigital),
+  }));
+}
+
+export interface SegmentWindowPoint {
+  segment: string;
+  roles: number;
+  orgs: number;
+}
+
+export async function getSegmentWindowAggregates(opts: {
+  windowDays: 30 | 60 | 90;
+}): Promise<SegmentWindowPoint[]> {
+  const d = await getLatestDate();
+  if (!d) return [];
+  const rows = await db
+    .select()
+    .from(segmentWindowAggregates)
+    .where(
+      and(
+        eq(segmentWindowAggregates.snapshotDate, d),
+        eq(segmentWindowAggregates.windowDays, opts.windowDays),
+      ),
+    )
+    .orderBy(segmentWindowAggregates.segment);
+  return rows.map((r) => ({
+    segment: r.segment,
+    roles: r.roleCount,
+    orgs: r.orgCount,
   }));
 }
 

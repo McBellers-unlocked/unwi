@@ -1,6 +1,8 @@
 "use client";
 
-interface Datum {
+import { placeLabels, type Reservation } from "./section-02-labels";
+
+export interface ScatterDatum {
   segment: string;
   label: string;
   roles: number;
@@ -18,20 +20,9 @@ const X_MAX = 150;
 const Y_MIN = 1;
 const Y_MAX = 30;
 
-type Anchor = "start" | "middle" | "end";
-// Label placement, hand-tuned against the log-scale positions so no label
-// overlaps any other label or any bubble in the 9-segment dataset.
-const LABEL_POS: Record<string, { dx: number; dy: number; anchor: Anchor }> = {
-  ITOPS:           { dx:   0, dy: -16, anchor: "end"    },
-  DATA_AI:         { dx: -14, dy:   4, anchor: "end"    },
-  POLICY_ADVISORY: { dx:  14, dy:   4, anchor: "start"  },
-  INFO_KM:         { dx:   0, dy: -14, anchor: "middle" },
-  CYBER:           { dx: -14, dy:   4, anchor: "end"    },
-  SOFTWARE:        { dx:  14, dy:   4, anchor: "start"  },
-  PRODUCT:         { dx: -14, dy:   4, anchor: "end"    },
-  CLOUD:           { dx:  14, dy:   4, anchor: "start"  },
-  ENTERPRISE:      { dx:  14, dy:   4, anchor: "start"  },
-};
+const LABEL_FONT_PX = 13;
+const LABEL_CHAR_PX = 6.5;
+const BUBBLE_R = 10;
 
 function log10(v: number): number {
   return Math.log10(Math.max(v, 1e-6));
@@ -50,12 +41,51 @@ function lineEndAt(
   return { x: bubble.cx + dx * k, y: bubble.cy + dy * k };
 }
 
-export function SegmentScatter({ data }: { data: Datum[] }) {
+function lineBBox(
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+  pad = 4,
+) {
+  const x = Math.min(a.x, b.x) - pad;
+  const y = Math.min(a.y, b.y) - pad;
+  const w = Math.abs(a.x - b.x) + 2 * pad;
+  const h = Math.abs(a.y - b.y) + 2 * pad;
+  return { x, y, w, h };
+}
+
+function textBBox(
+  x: number,
+  y: number,
+  anchor: "start" | "middle" | "end",
+  text: string,
+  fontPx: number = LABEL_FONT_PX,
+  charPx: number = LABEL_CHAR_PX,
+) {
+  const w = text.length * charPx;
+  const h = fontPx * 1.2;
+  const ascent = h * 0.8;
+  const left = anchor === "start" ? x : anchor === "end" ? x - w : x - w / 2;
+  return { x: left, y: y - ascent, w, h };
+}
+
+export function SegmentScatter({
+  data,
+  window,
+}: {
+  data: ScatterDatum[];
+  window: 30 | 60 | 90;
+}) {
   const W = 760;
   const H = 480;
   const PAD = { top: 40, right: 40, bottom: 64, left: 68 };
   const innerW = W - PAD.left - PAD.right;
   const innerH = H - PAD.top - PAD.bottom;
+  const plot = {
+    x0: PAD.left,
+    y0: PAD.top,
+    x1: PAD.left + innerW,
+    y1: PAD.top + innerH,
+  };
 
   const xSpan = log10(X_MAX) - log10(X_MIN);
   const ySpan = log10(Y_MAX) - log10(Y_MIN);
@@ -70,29 +100,84 @@ export function SegmentScatter({ data }: { data: Datum[] }) {
   const itops = data.find((d) => d.segment === "ITOPS");
   const enterprise = data.find((d) => d.segment === "ENTERPRISE");
 
-  // Annotation anchor positions in plot coordinates.
-  const itopsAnnoText = { x: 520, y: 145 };
-  const enterpriseAnnoText = { x: 340, y: 385 };
+  // Editorial callouts. Anchor offsets keep the callout near its bubble across
+  // any window, with guards for empty windows where the segment has no data.
+  type Callout = {
+    text: string;
+    textPos: { x: number; y: number };
+    anchor: "start" | "middle" | "end";
+    lineEnd: { x: number; y: number };
+    textBox: { x: number; y: number; w: number; h: number };
+    lineBox: { x: number; y: number; w: number; h: number };
+  };
 
-  const itopsLineEnd = itops
-    ? lineEndAt(
-        itopsAnnoText,
-        { cx: x(itops.roles), cy: y(itops.orgs), r: 10 },
-      )
-    : null;
-  const enterpriseLineEnd = enterprise
-    ? lineEndAt(
-        enterpriseAnnoText,
-        { cx: x(enterprise.roles), cy: y(enterprise.orgs), r: 10 },
-      )
-    : null;
+  const callouts: Callout[] = [];
+
+  if (itops && itops.roles > 0 && itops.orgs > 0) {
+    const cx = x(itops.roles);
+    const cy = y(itops.orgs);
+    const text = `${itops.roles} roles across ${itops.orgs} orgs`;
+    const textPos = { x: cx - 28, y: cy - 32 };
+    const lineEnd = lineEndAt(textPos, { cx, cy, r: BUBBLE_R });
+    callouts.push({
+      text,
+      textPos,
+      anchor: "end",
+      lineEnd,
+      textBox: textBBox(textPos.x, textPos.y, "end", text),
+      lineBox: lineBBox(textPos, lineEnd),
+    });
+  }
+
+  if (enterprise && enterprise.roles > 0 && enterprise.orgs > 0) {
+    const cx = x(enterprise.roles);
+    const cy = y(enterprise.orgs);
+    const text = `${enterprise.roles} role${enterprise.roles === 1 ? "" : "s"}, ${enterprise.orgs} org${enterprise.orgs === 1 ? "" : "s"} — a niche`;
+    const textPos = { x: cx + 30, y: cy + 28 };
+    const lineEnd = lineEndAt(textPos, { cx, cy, r: BUBBLE_R });
+    callouts.push({
+      text,
+      textPos,
+      anchor: "start",
+      lineEnd,
+      textBox: textBBox(textPos.x, textPos.y, "start", text),
+      lineBox: lineBBox(textPos, lineEnd),
+    });
+  }
+
+  const reserved: Reservation[] = callouts.flatMap((c) => [
+    { bbox: c.textBox },
+    { bbox: c.lineBox },
+  ]);
+
+  const bubbles = data.map((d) => ({
+    id: d.segment,
+    cx: x(d.roles),
+    cy: y(d.orgs),
+    r: BUBBLE_R,
+  }));
+
+  const placed = placeLabels({
+    bubbles,
+    labels: data.map((d) => ({
+      id: d.segment,
+      text: d.label,
+      // Highlighted segments + dense areas get first pick.
+      priority: (HIGHLIGHT.has(d.segment) ? 1000 : 0) + d.roles,
+    })),
+    reserved,
+    fontPx: LABEL_FONT_PX,
+    charPx: LABEL_CHAR_PX,
+    plot,
+  });
+  const placeById = new Map(placed.map((p) => [p.id, p] as const));
 
   return (
     <svg
       viewBox={`0 0 ${W} ${H}`}
       className="w-full h-auto"
       role="img"
-      aria-label="Log-log scatter plot of UN digital segments by role volume versus organisations hiring"
+      aria-label={`Log-log scatter plot of UN digital segments by role volume versus organisations hiring, last ${window} days`}
     >
       <g
         fontFamily="var(--font-sans)"
@@ -149,7 +234,7 @@ export function SegmentScatter({ data }: { data: Datum[] }) {
           </text>
         ))}
 
-        {/* X-axis title — directly below the tick labels, centred on plot */}
+        {/* X-axis title */}
         <text
           x={PAD.left + innerW / 2}
           y={axisBottomY + 42}
@@ -157,10 +242,10 @@ export function SegmentScatter({ data }: { data: Datum[] }) {
           fill="#66788A"
           textAnchor="middle"
         >
-          Roles posted in Q1 2026
+          Roles posted in last {window} days
         </text>
 
-        {/* Y-axis title — rotated vertical, centred on plot height */}
+        {/* Y-axis title */}
         <text
           transform={`translate(${PAD.left - 44}, ${PAD.top + innerH / 2}) rotate(-90)`}
           fontSize={12}
@@ -170,79 +255,53 @@ export function SegmentScatter({ data }: { data: Datum[] }) {
           Organisations hiring
         </text>
 
-        {/* Leader lines + annotation text — drawn before bubbles so the
-            bubble circle visually "caps" the line */}
-        {itops && itopsLineEnd && (
-          <g>
+        {/* Editorial leader lines + callouts (drawn before bubbles so the
+            bubble visually caps the line) */}
+        {callouts.map((c, i) => (
+          <g key={`callout-${i}`}>
             <line
-              x1={itopsAnnoText.x}
-              y1={itopsAnnoText.y - 4}
-              x2={itopsLineEnd.x}
-              y2={itopsLineEnd.y}
+              x1={c.textPos.x}
+              y1={c.textPos.y - 4}
+              x2={c.lineEnd.x}
+              y2={c.lineEnd.y}
               stroke="#0A3C5A"
               strokeWidth={1.5}
             />
             <text
-              x={itopsAnnoText.x}
-              y={itopsAnnoText.y}
+              x={c.textPos.x}
+              y={c.textPos.y}
               fontSize={13}
               fontWeight={500}
               fill="#0A3C5A"
-              textAnchor="end"
+              textAnchor={c.anchor}
             >
-              {itops.roles} roles across {itops.orgs} orgs
+              {c.text}
             </text>
           </g>
-        )}
-        {enterprise && enterpriseLineEnd && (
-          <g>
-            <line
-              x1={enterpriseAnnoText.x}
-              y1={enterpriseAnnoText.y - 4}
-              x2={enterpriseLineEnd.x}
-              y2={enterpriseLineEnd.y}
-              stroke="#0A3C5A"
-              strokeWidth={1.5}
-            />
-            <text
-              x={enterpriseAnnoText.x}
-              y={enterpriseAnnoText.y}
-              fontSize={13}
-              fontWeight={500}
-              fill="#0A3C5A"
-              textAnchor="start"
-            >
-              {enterprise.roles} role
-              {enterprise.roles === 1 ? "" : "s"}, {enterprise.orgs} org
-              {enterprise.orgs === 1 ? "" : "s"} — a niche
-            </text>
-          </g>
-        )}
+        ))}
 
-        {/* Bubbles + segment labels */}
+        {/* Bubbles + auto-placed segment labels */}
         {data.map((d) => {
           const fill = HIGHLIGHT.has(d.segment) ? "#00A0B0" : "#0A3C5A";
-          const pos = LABEL_POS[d.segment] ?? {
-            dx: 14,
-            dy: 4,
-            anchor: "start" as const,
-          };
           const cx = x(d.roles);
           const cy = y(d.orgs);
+          const p = placeById.get(d.segment);
 
           return (
             <g key={d.segment}>
-              <circle cx={cx} cy={cy} r={10} fill={fill} />
-              <text
-                x={cx + pos.dx}
-                y={cy + pos.dy}
-                fontSize={13}
-                fontWeight={500}
-                fill="#0A3C5A"
-                textAnchor={pos.anchor}
-              >
-                {d.label}
-              </text>
+              <circle cx={cx} cy={cy} r={BUBBLE_R} fill={fill} />
+              {p && (
+                <text
+                  x={p.x}
+                  y={p.y}
+                  fontSize={LABEL_FONT_PX}
+                  fontWeight={500}
+                  fill="#0A3C5A"
+                  textAnchor={p.anchor}
+                >
+                  {d.label}
+                </text>
+              )}
             </g>
           );
         })}
