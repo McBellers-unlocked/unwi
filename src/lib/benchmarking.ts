@@ -16,7 +16,7 @@ export const BENCHMARKING_META = {
   windowDescription:
     "UN-system peer postings drawn from the aggregated UN jobs board, " +
     "1 August 2025 to 28 April 2026 (n=856 across 47 organisations).",
-  unicсBaseline: {
+  uniccBaseline: {
     totalStaffPDs: 373,
     aiCorePDs: 7,
     aiCorePct: 1.9,
