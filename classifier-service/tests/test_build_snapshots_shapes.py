@@ -96,6 +96,10 @@ def test_collision_profiles_shape(artefacts):
         assert profile["organisation_count"] >= 3
         assert len(profile["organisations"]) == profile["organisation_count"]
         assert profile["segment"] in SEGMENT_ORDER
+        # Per-cell counts must cover every org in the profile, all >= 1.
+        counts = profile["posting_counts"]
+        assert set(counts) == set(profile["organisations"])
+        assert all(v >= 1 for v in counts.values())
 
 
 def test_staff_vs_consultant_shape(artefacts):
