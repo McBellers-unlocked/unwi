@@ -7,16 +7,18 @@ type View = "hiring" | "benchmarking";
 export function DashboardSwitcher({
   hiringSlot,
   benchmarkingSlot,
+  defaultView = "hiring",
 }: {
   hiringSlot: ReactNode;
   benchmarkingSlot: ReactNode;
+  defaultView?: View;
 }) {
-  const [view, setView] = useState<View>("hiring");
+  const [view, setView] = useState<View>(defaultView);
 
   return (
     <>
       <ViewToggle view={view} onChange={setView} />
-      <div className="mt-4">
+      <div className="mt-2">
         {view === "hiring" ? hiringSlot : benchmarkingSlot}
       </div>
     </>
@@ -33,14 +35,14 @@ function ViewToggle({
   return (
     <nav
       aria-label="Dashboard view"
-      className="mt-12 sticky top-0 z-30 backdrop-blur-sm"
+      className="sticky top-0 z-30 backdrop-blur-sm"
       style={{
         background:
           "linear-gradient(to bottom, rgba(255,241,229,0.96) 0%, rgba(255,241,229,0.92) 70%, rgba(255,241,229,0) 100%)",
       }}
     >
       <div className="mx-auto max-w-wide px-6">
-        <div className="flex flex-col gap-3 border-b border-rule pb-3 pt-4 md:flex-row md:items-end md:justify-between md:gap-8">
+        <div className="flex flex-col gap-3 border-b border-rule pb-3 pt-6 md:flex-row md:items-end md:justify-between md:gap-8">
           <div className="flex items-baseline gap-1">
             <ToggleTab
               active={view === "hiring"}

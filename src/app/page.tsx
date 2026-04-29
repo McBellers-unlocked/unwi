@@ -18,40 +18,42 @@ import { getSnapshotMeta } from "@/lib/data";
 export const dynamic = "force-dynamic";
 
 export default async function LongformPage() {
-  const meta = await getSnapshotMeta();
+  // Benchmarking view is purely static — surface it even when the DB is
+  // unreachable (no DATABASE_URL, transient Aurora outage, empty snapshots
+  // table). Hiring view stays gated behind a real meta row.
+  const meta = await getSnapshotMeta().catch(() => null);
+
+  const hiringSlot = meta ? (
+    <>
+      <Hero />
+      <Section01Shape />
+      <Section02Demand />
+      <Section03Shift />
+      <Section04Profiles />
+      <Section05Concurrency />
+      <Section06Map />
+      <Section07BuildBuy />
+      <Section08Signal />
+      <Section09Methodology />
+      <Section10Roadmap />
+    </>
+  ) : (
+    <div className="pt-12 pb-16">
+      <div className="mx-auto max-w-column px-6">
+        <EmptyState />
+      </div>
+    </div>
+  );
 
   return (
     <>
       <ScrollProgress />
       <main className="min-h-screen bg-canvas text-ink-body pb-40">
-        {!meta ? (
-          <div className="pt-24 pb-16">
-            <div className="mx-auto max-w-column px-6">
-              <EmptyState />
-            </div>
-          </div>
-        ) : (
-          <>
-            <Hero />
-            <DashboardSwitcher
-              hiringSlot={
-                <>
-                  <Section01Shape />
-                  <Section02Demand />
-                  <Section03Shift />
-                  <Section04Profiles />
-                  <Section05Concurrency />
-                  <Section06Map />
-                  <Section07BuildBuy />
-                  <Section08Signal />
-                  <Section09Methodology />
-                  <Section10Roadmap />
-                </>
-              }
-              benchmarkingSlot={<BenchmarkingView />}
-            />
-          </>
-        )}
+        <DashboardSwitcher
+          hiringSlot={hiringSlot}
+          benchmarkingSlot={<BenchmarkingView />}
+          defaultView={meta ? "hiring" : "benchmarking"}
+        />
       </main>
     </>
   );
