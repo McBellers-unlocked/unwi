@@ -66,6 +66,12 @@ export interface CollisionProfiles {
     canonical_title: string;
     organisation_count: number;
     organisations: string[];
+    /**
+     * Postings per organisation for this title. Optional so that
+     * snapshots produced before the field was added still parse — the
+     * UI falls back to binary presence cells when this is absent.
+     */
+    posting_counts?: Record<string, number>;
     segment: string;
   }>;
 }

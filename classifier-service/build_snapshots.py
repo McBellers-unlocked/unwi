@@ -586,24 +586,25 @@ def build_collision_profiles(
     primary_digital = [
         r for r in rows if _in_period(r.posted_date, primary) and r.segment
     ]
-    by_title: dict[tuple[str, str], set[str]] = defaultdict(set)
+    by_title: dict[tuple[str, str], Counter[str]] = defaultdict(Counter)
     seg_of: dict[tuple[str, str], str] = {}
     for r in primary_digital:
         canonical = _normalize_title(r.title)
         if not canonical:
             continue
         key = (canonical, r.segment)
-        by_title[key].add(r.organization)
+        by_title[key][r.organization] += 1
         seg_of[key] = r.segment
 
     profiles = []
-    for (canonical, seg), orgs in by_title.items():
-        if len(orgs) >= 3:
+    for (canonical, seg), counter in by_title.items():
+        if len(counter) >= 3:
             profiles.append(
                 {
                     "canonical_title": canonical,
-                    "organisation_count": len(orgs),
-                    "organisations": sorted(orgs),
+                    "organisation_count": len(counter),
+                    "organisations": sorted(counter),
+                    "posting_counts": dict(counter),
                     "segment": seg,
                 }
             )
