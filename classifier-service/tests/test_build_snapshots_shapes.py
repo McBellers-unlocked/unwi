@@ -113,7 +113,7 @@ def test_cut_manifest_shape(artefacts):
     )
 
 
-def test_all_12_artefact_names_registered():
+def test_all_artefact_names_registered():
     from build_snapshots import ARTEFACT_NAMES
 
-    assert len(ARTEFACT_NAMES) == 12
+    assert len(ARTEFACT_NAMES) == 13

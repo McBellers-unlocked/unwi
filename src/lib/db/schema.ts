@@ -194,6 +194,26 @@ export const sourceCoverage = pgTable(
   (t) => ({ pk: primaryKey({ columns: [t.snapshotDate, t.source] }) }),
 );
 
+export const segmentWindowAggregates = pgTable(
+  "segment_window_aggregates",
+  {
+    snapshotDate: date("snapshot_date").notNull(),
+    windowDays: integer("window_days").notNull(),
+    segment: text("segment").notNull(),
+    roleCount: integer("role_count").notNull(),
+    orgCount: integer("org_count").notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({
+      columns: [t.snapshotDate, t.windowDays, t.segment],
+    }),
+    windowCheck: check(
+      "segment_window_aggregates_window_days_check",
+      sql`${t.windowDays} in (30, 60, 90)`,
+    ),
+  }),
+);
+
 export const activeRoles = pgTable("active_roles", {
   roleId: text("role_id").primaryKey(),
   snapshotDate: date("snapshot_date").notNull(),
@@ -237,3 +257,5 @@ export type ComparatorSegmentShareRow = typeof comparatorSegmentShares.$inferSel
 export type SourceCoverageRow = typeof sourceCoverage.$inferSelect;
 export type ActiveRole = typeof activeRoles.$inferSelect;
 export type SnapshotRun = typeof snapshotRuns.$inferSelect;
+export type SegmentWindowAggregateRow =
+  typeof segmentWindowAggregates.$inferSelect;
