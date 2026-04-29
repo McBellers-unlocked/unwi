@@ -1,6 +1,8 @@
+import { DashboardSwitcher } from "@/components/dashboard-switcher";
 import { EmptyState } from "@/components/empty-state";
 import { Hero } from "@/components/hero";
 import { ScrollProgress } from "@/components/scroll-progress";
+import { BenchmarkingView } from "@/components/sections/benchmarking";
 import { Section01Shape } from "@/components/sections/section-01-shape";
 import { Section02Demand } from "@/components/sections/section-02-demand";
 import { Section03Shift } from "@/components/sections/section-03-shift";
@@ -31,16 +33,23 @@ export default async function LongformPage() {
         ) : (
           <>
             <Hero />
-            <Section01Shape />
-            <Section02Demand />
-            <Section03Shift />
-            <Section04Profiles />
-            <Section05Concurrency />
-            <Section06Map />
-            <Section07BuildBuy />
-            <Section08Signal />
-            <Section09Methodology />
-            <Section10Roadmap />
+            <DashboardSwitcher
+              hiringSlot={
+                <>
+                  <Section01Shape />
+                  <Section02Demand />
+                  <Section03Shift />
+                  <Section04Profiles />
+                  <Section05Concurrency />
+                  <Section06Map />
+                  <Section07BuildBuy />
+                  <Section08Signal />
+                  <Section09Methodology />
+                  <Section10Roadmap />
+                </>
+              }
+              benchmarkingSlot={<BenchmarkingView />}
+            />
           </>
         )}
       </main>
