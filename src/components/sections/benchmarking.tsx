@@ -48,7 +48,7 @@ function Lede({
   zeroAiTotal: number;
   zeroAiSharePct: number;
 }) {
-  const { totalStaffPDs, aiCorePDs, aiCorePct } = BENCHMARKING_META.unicсBaseline;
+  const { totalStaffPDs, aiCorePDs, aiCorePct } = BENCHMARKING_META.uniccBaseline;
 
   return (
     <header className="pt-12">
