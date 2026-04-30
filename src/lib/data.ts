@@ -6,13 +6,18 @@
  *     the most recent snapshot. Used by sections that don't care about history.
  *   - Trend readers (`get<Thing>Trend(window)`) resolve a window of snapshots
  *     (start + end) and return start, end, and per-row deltas. Used by sections
- *     that surface a "Last 7d / 30d / 90d / Since August" comparison.
+ *     that surface a "Q1 / Since August" comparison.
+ *
+ * Each query is wrapped in safe() so a missing relation, transient connection
+ * error, or schema drift returns empty/null instead of bubbling a 500 up to
+ * the route. Sections render gracefully with no data; the benchmarking view
+ * (which doesn't touch the DB) stays available.
  *
  * No computation here other than delta arithmetic — the heavy lifting (segment
  * classification, JSON artefacts) is done by the Python classifier Lambda.
  */
 import "server-only";
-import { desc, eq, inArray, lte, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, lte, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import {
   activeRoles,
@@ -20,6 +25,7 @@ import {
   geography,
   organisationBreakdown,
   segmentDistribution,
+  segmentWindowAggregates,
   snapshots,
   sourceCoverage,
   type CollisionProfiles,
@@ -39,6 +45,18 @@ export {
   type WindowKey,
 } from "@/lib/window";
 import type { WindowKey } from "@/lib/window";
+
+async function safe<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    console.error(
+      "[data] query failed:",
+      err instanceof Error ? err.message : err,
+    );
+    return fallback;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Window resolution
@@ -62,15 +80,11 @@ export function resolveWindow(
 
   let startDate: string;
   if (window === "sinceAug") {
-    // Earliest snapshot we have that is on/after the Aug 1 anchor. Falls back
-    // to the absolute earliest snapshot if no snapshot reaches back that far.
     const sinceAnchor = availableDatesDesc.filter((d) => d >= ANCHOR_DATE);
     startDate =
       sinceAnchor[sinceAnchor.length - 1] ??
       availableDatesDesc[availableDatesDesc.length - 1]!;
   } else {
-    // q1 (default) — point-in-time view of the latest snapshot, with the
-    // immediately-preceding snapshot used as the trend baseline.
     startDate = availableDatesDesc[1] ?? endDate;
   }
 
@@ -94,43 +108,51 @@ function sampleEvenly<T>(items: T[], n: number): T[] {
 // ---------------------------------------------------------------------------
 
 export async function getAvailableSnapshotDates(): Promise<string[]> {
-  const rows = await db
-    .select({ d: snapshots.snapshotDate })
-    .from(snapshots)
-    .orderBy(desc(snapshots.snapshotDate));
-  return rows.map((r) => r.d);
+  return safe(async () => {
+    const rows = await db
+      .select({ d: snapshots.snapshotDate })
+      .from(snapshots)
+      .orderBy(desc(snapshots.snapshotDate));
+    return rows.map((r) => r.d);
+  }, []);
 }
 
 async function getLatestDate(asOf?: string): Promise<string | null> {
-  const q = db
-    .select({ d: snapshots.snapshotDate })
-    .from(snapshots)
-    .orderBy(desc(snapshots.snapshotDate))
-    .limit(1);
-  const rows = await (asOf
-    ? q.where(lte(snapshots.snapshotDate, asOf))
-    : q);
-  return rows[0]?.d ?? null;
+  return safe<string | null>(async () => {
+    const q = db
+      .select({ d: snapshots.snapshotDate })
+      .from(snapshots)
+      .orderBy(desc(snapshots.snapshotDate))
+      .limit(1);
+    const rows = await (asOf
+      ? q.where(lte(snapshots.snapshotDate, asOf))
+      : q);
+    return rows[0]?.d ?? null;
+  }, null);
 }
 
 export async function getLatestSnapshotDate(): Promise<string | null> {
   return getLatestDate();
 }
 
-async function getSnapshotRow(asOf?: string) {
-  const q = db
-    .select()
-    .from(snapshots)
-    .orderBy(desc(snapshots.snapshotDate))
-    .limit(1);
-  const rows = await (asOf
-    ? q.where(lte(snapshots.snapshotDate, asOf))
-    : q);
-  return rows[0] ?? null;
+type SnapshotRow = typeof snapshots.$inferSelect;
+
+async function getSnapshotRow(asOf?: string): Promise<SnapshotRow | null> {
+  return safe<SnapshotRow | null>(async () => {
+    const q = db
+      .select()
+      .from(snapshots)
+      .orderBy(desc(snapshots.snapshotDate))
+      .limit(1);
+    const rows = await (asOf
+      ? q.where(lte(snapshots.snapshotDate, asOf))
+      : q);
+    return rows[0] ?? null;
+  }, null);
 }
 
 // ---------------------------------------------------------------------------
-// Latest-only readers (existing surface — unchanged)
+// Latest-only readers
 // ---------------------------------------------------------------------------
 
 export interface SnapshotMeta {
@@ -197,89 +219,9 @@ export async function getSinceAugAggregates(): Promise<SinceAugAggregates | null
   return row?.sinceAugAggregates ?? null;
 }
 
-/**
- * Adapt the since-Aug aggregates into the same Trend shape the sections
- * already consume. start === end so no delta badges render — the wider
- * window is the headline, not the within-window movement.
- */
-export interface SinceAugTrends {
-  period: { from: string; to: string };
-  segTrend: SegmentDistributionTrend;
-  orgTrend: OrganisationBreakdownTrend;
-  geoTrend: GeographyTrend;
-}
-
-export async function getSinceAugTrends(): Promise<SinceAugTrends | null> {
-  const aggregates = await getSinceAugAggregates();
-  if (!aggregates) return null;
-  const { period, totals } = aggregates;
-
-  const segDist: SegmentDistributionRow[] = aggregates.segments.map((s) => ({
-    segment: s.segment,
-    count: s.count,
-    shareOfDigital: s.share_of_digital,
-    shareOfAll:
-      totals.total_postings > 0
-        ? (s.count / totals.total_postings) * 100
-        : 0,
-  }));
-  if (totals.total_postings > totals.digital_postings) {
-    const nd = totals.total_postings - totals.digital_postings;
-    segDist.push({
-      segment: "NOT_DIGITAL",
-      count: nd,
-      shareOfDigital: null,
-      shareOfAll: (nd / totals.total_postings) * 100,
-    });
-  }
-
-  const orgRows: OrganisationBreakdownRow[] = aggregates.organisations.map(
-    (o) => ({
-      organisation: o.organisation,
-      totalPostings: o.total_postings,
-      digitalPostings: o.digital_postings,
-      digitalShare: o.digital_share,
-      topSegment1: o.top_segment_1,
-      topSegment2: o.top_segment_2,
-      topSegment3: o.top_segment_3,
-    }),
-  );
-
-  const geoRows: GeographyRow[] = aggregates.geography.map((g) => ({
-    locationOrCountry: g.location_or_country,
-    count: g.count,
-    share: g.share,
-    topSegment: g.top_segment,
-    topSegments: g.top_segments,
-    organisationCount: g.organisation_count,
-  }));
-
-  return {
-    period,
-    segTrend: {
-      startDate: period.from,
-      endDate: period.to,
-      end: segDist,
-      start: segDist,
-      deltas: {},
-      samplePoints: [],
-    },
-    orgTrend: {
-      startDate: period.from,
-      endDate: period.to,
-      end: orgRows,
-      start: orgRows,
-      deltas: {},
-    },
-    geoTrend: {
-      startDate: period.from,
-      endDate: period.to,
-      end: geoRows,
-      start: geoRows,
-      deltas: {},
-    },
-  };
-}
+// ---------------------------------------------------------------------------
+// Per-table fetch helpers — parameterised so trend readers can reuse them.
+// ---------------------------------------------------------------------------
 
 export interface SegmentDistributionRow {
   segment: string;
@@ -288,17 +230,22 @@ export interface SegmentDistributionRow {
   shareOfAll: number;
 }
 
-async function fetchSegmentDistribution(snapshotDate: string): Promise<SegmentDistributionRow[]> {
-  const rows = await db
-    .select()
-    .from(segmentDistribution)
-    .where(eq(segmentDistribution.snapshotDate, snapshotDate));
-  return rows.map((r) => ({
-    segment: r.segment,
-    count: r.count,
-    shareOfDigital: r.shareOfDigital != null ? Number(r.shareOfDigital) : null,
-    shareOfAll: Number(r.shareOfAll),
-  }));
+async function fetchSegmentDistribution(
+  snapshotDate: string,
+): Promise<SegmentDistributionRow[]> {
+  return safe(async () => {
+    const rows = await db
+      .select()
+      .from(segmentDistribution)
+      .where(eq(segmentDistribution.snapshotDate, snapshotDate));
+    return rows.map((r) => ({
+      segment: r.segment,
+      count: r.count,
+      shareOfDigital:
+        r.shareOfDigital != null ? Number(r.shareOfDigital) : null,
+      shareOfAll: Number(r.shareOfAll),
+    }));
+  }, []);
 }
 
 export async function getSegmentDistribution(): Promise<SegmentDistributionRow[]> {
@@ -317,21 +264,25 @@ export interface OrganisationBreakdownRow {
   topSegment3: string | null;
 }
 
-async function fetchOrganisationBreakdown(snapshotDate: string): Promise<OrganisationBreakdownRow[]> {
-  const rows = await db
-    .select()
-    .from(organisationBreakdown)
-    .where(eq(organisationBreakdown.snapshotDate, snapshotDate))
-    .orderBy(desc(organisationBreakdown.digitalPostings));
-  return rows.map((r) => ({
-    organisation: r.organisation,
-    totalPostings: r.totalPostings,
-    digitalPostings: r.digitalPostings,
-    digitalShare: Number(r.digitalShare),
-    topSegment1: r.topSegment1,
-    topSegment2: r.topSegment2,
-    topSegment3: r.topSegment3,
-  }));
+async function fetchOrganisationBreakdown(
+  snapshotDate: string,
+): Promise<OrganisationBreakdownRow[]> {
+  return safe(async () => {
+    const rows = await db
+      .select()
+      .from(organisationBreakdown)
+      .where(eq(organisationBreakdown.snapshotDate, snapshotDate))
+      .orderBy(desc(organisationBreakdown.digitalPostings));
+    return rows.map((r) => ({
+      organisation: r.organisation,
+      totalPostings: r.totalPostings,
+      digitalPostings: r.digitalPostings,
+      digitalShare: Number(r.digitalShare),
+      topSegment1: r.topSegment1,
+      topSegment2: r.topSegment2,
+      topSegment3: r.topSegment3,
+    }));
+  }, []);
 }
 
 export async function getOrganisationBreakdown(): Promise<OrganisationBreakdownRow[]> {
@@ -350,19 +301,21 @@ export interface GeographyRow {
 }
 
 async function fetchGeography(snapshotDate: string): Promise<GeographyRow[]> {
-  const rows = await db
-    .select()
-    .from(geography)
-    .where(eq(geography.snapshotDate, snapshotDate))
-    .orderBy(desc(geography.count));
-  return rows.map((r) => ({
-    locationOrCountry: r.locationOrCountry,
-    count: r.count,
-    share: Number(r.share),
-    topSegment: r.topSegment,
-    topSegments: r.topSegments ?? (r.topSegment ? [r.topSegment] : []),
-    organisationCount: r.organisationCount ?? 0,
-  }));
+  return safe(async () => {
+    const rows = await db
+      .select()
+      .from(geography)
+      .where(eq(geography.snapshotDate, snapshotDate))
+      .orderBy(desc(geography.count));
+    return rows.map((r) => ({
+      locationOrCountry: r.locationOrCountry,
+      count: r.count,
+      share: Number(r.share),
+      topSegment: r.topSegment,
+      topSegments: r.topSegments ?? (r.topSegment ? [r.topSegment] : []),
+      organisationCount: r.organisationCount ?? 0,
+    }));
+  }, []);
 }
 
 export async function getGeography(): Promise<GeographyRow[]> {
@@ -379,6 +332,134 @@ export interface ComparatorShareRow {
   comparatorShare: number;
   deltaPp: number;
 }
+
+export async function getComparatorShares(): Promise<ComparatorShareRow[]> {
+  return safe(async () => {
+    const d = await getLatestDate();
+    if (!d) return [];
+    const rows = await db
+      .select()
+      .from(comparatorSegmentShares)
+      .where(eq(comparatorSegmentShares.snapshotDate, d));
+    return rows.map((r) => ({
+      segment: r.segment,
+      primaryCount: r.primaryCount,
+      primaryShare: Number(r.primaryShare),
+      comparatorCount: r.comparatorCount,
+      comparatorShare: Number(r.comparatorShare),
+      deltaPp: Number(r.deltaPp),
+    }));
+  }, []);
+}
+
+export interface SourceCoverageRow {
+  source: string;
+  totalCount: number;
+  digitalCount: number;
+  shareOfDigital: number;
+}
+
+export async function getSourceCoverage(): Promise<SourceCoverageRow[]> {
+  return safe(async () => {
+    const d = await getLatestDate();
+    if (!d) return [];
+    const rows = await db
+      .select()
+      .from(sourceCoverage)
+      .where(eq(sourceCoverage.snapshotDate, d))
+      .orderBy(desc(sourceCoverage.totalCount));
+    return rows.map((r) => ({
+      source: r.source,
+      totalCount: r.totalCount,
+      digitalCount: r.digitalCount,
+      shareOfDigital: Number(r.shareOfDigital),
+    }));
+  }, []);
+}
+
+export interface SegmentWindowPoint {
+  segment: string;
+  roles: number;
+  orgs: number;
+}
+
+export async function getSegmentWindowAggregates(opts: {
+  windowDays: 30 | 60 | 90;
+}): Promise<SegmentWindowPoint[]> {
+  return safe(async () => {
+    const d = await getLatestDate();
+    if (!d) return [];
+    const rows = await db
+      .select()
+      .from(segmentWindowAggregates)
+      .where(
+        and(
+          eq(segmentWindowAggregates.snapshotDate, d),
+          eq(segmentWindowAggregates.windowDays, opts.windowDays),
+        ),
+      )
+      .orderBy(segmentWindowAggregates.segment);
+    return rows.map((r) => ({
+      segment: r.segment,
+      roles: r.roleCount,
+      orgs: r.orgCount,
+    }));
+  }, []);
+}
+
+export interface ActiveRoleRow {
+  roleId: string;
+  title: string;
+  organisation: string;
+  segment: string;
+  location: string | null;
+  postedDate: string | null;
+  closingDate: string | null;
+  sourceUrl: string | null;
+  level: string | null;
+}
+
+export async function getActiveRoles(filter?: {
+  segment?: string;
+  windowDays?: 30 | 60;
+}): Promise<ActiveRoleRow[]> {
+  return safe(async () => {
+    const conditions = [] as ReturnType<typeof sql>[];
+    if (filter?.segment) {
+      conditions.push(sql`${activeRoles.segment} = ${filter.segment}`);
+    }
+    if (filter?.windowDays) {
+      // pg binds windowDays as 'unknown', which makes `date + unknown`
+      // ambiguous to Postgres ("operator is not unique"). Cast explicitly
+      // to int so the date + int operator is selected.
+      conditions.push(
+        sql`${activeRoles.closingDate} is not null and ${activeRoles.closingDate} <= current_date + (${filter.windowDays})::int`,
+      );
+    }
+    const whereClause =
+      conditions.length > 0 ? sql.join(conditions, sql` and `) : undefined;
+
+    const query = db.select().from(activeRoles);
+    const rows = await (whereClause ? query.where(whereClause) : query).orderBy(
+      activeRoles.closingDate,
+    );
+    return rows.map((r) => ({
+      roleId: r.roleId,
+      title: r.title,
+      organisation: r.organisation,
+      segment: r.segment,
+      location: r.location,
+      postedDate: r.postedDate,
+      closingDate: r.closingDate,
+      sourceUrl: r.sourceUrl,
+      level: r.level,
+    }));
+  }, []);
+}
+
+// ---------------------------------------------------------------------------
+// Q1↔Q4 KPI strip
+// ---------------------------------------------------------------------------
 
 export interface KpiComparison {
   digitalRoles: {
@@ -403,10 +484,14 @@ export async function getKpiComparison(): Promise<KpiComparison | null> {
       ? ((q1Digital - q4Digital) / q4Digital) * 100
       : null;
 
-  const comparators = await db
-    .select()
-    .from(comparatorSegmentShares)
-    .where(eq(comparatorSegmentShares.snapshotDate, row.snapshotDate));
+  const comparators = await safe(
+    async () =>
+      db
+        .select()
+        .from(comparatorSegmentShares)
+        .where(eq(comparatorSegmentShares.snapshotDate, row.snapshotDate)),
+    [] as Array<typeof comparatorSegmentShares.$inferSelect>,
+  );
 
   let topMover: KpiComparison["topMover"] = null;
   if (comparators.length > 0) {
@@ -426,96 +511,8 @@ export async function getKpiComparison(): Promise<KpiComparison | null> {
   };
 }
 
-export async function getComparatorShares(): Promise<ComparatorShareRow[]> {
-  const d = await getLatestDate();
-  if (!d) return [];
-  const rows = await db
-    .select()
-    .from(comparatorSegmentShares)
-    .where(eq(comparatorSegmentShares.snapshotDate, d));
-  return rows.map((r) => ({
-    segment: r.segment,
-    primaryCount: r.primaryCount,
-    primaryShare: Number(r.primaryShare),
-    comparatorCount: r.comparatorCount,
-    comparatorShare: Number(r.comparatorShare),
-    deltaPp: Number(r.deltaPp),
-  }));
-}
-
-export interface SourceCoverageRow {
-  source: string;
-  totalCount: number;
-  digitalCount: number;
-  shareOfDigital: number;
-}
-
-export async function getSourceCoverage(): Promise<SourceCoverageRow[]> {
-  const d = await getLatestDate();
-  if (!d) return [];
-  const rows = await db
-    .select()
-    .from(sourceCoverage)
-    .where(eq(sourceCoverage.snapshotDate, d))
-    .orderBy(desc(sourceCoverage.totalCount));
-  return rows.map((r) => ({
-    source: r.source,
-    totalCount: r.totalCount,
-    digitalCount: r.digitalCount,
-    shareOfDigital: Number(r.shareOfDigital),
-  }));
-}
-
-export interface ActiveRoleRow {
-  roleId: string;
-  title: string;
-  organisation: string;
-  segment: string;
-  location: string | null;
-  postedDate: string | null;
-  closingDate: string | null;
-  sourceUrl: string | null;
-  level: string | null;
-}
-
-export async function getActiveRoles(filter?: {
-  segment?: string;
-  windowDays?: 30 | 60;
-}): Promise<ActiveRoleRow[]> {
-  const conditions = [] as ReturnType<typeof sql>[];
-  if (filter?.segment) {
-    conditions.push(sql`${activeRoles.segment} = ${filter.segment}`);
-  }
-  if (filter?.windowDays) {
-    // pg binds windowDays as 'unknown', which makes `date + unknown`
-    // ambiguous to Postgres ("operator is not unique"). Cast explicitly to
-    // int so the date + int operator is selected.
-    conditions.push(
-      sql`${activeRoles.closingDate} is not null and ${activeRoles.closingDate} <= current_date + (${filter.windowDays})::int`,
-    );
-  }
-  const whereClause =
-    conditions.length > 0 ? sql.join(conditions, sql` and `) : undefined;
-
-  const query = db.select().from(activeRoles);
-  const rows = await (whereClause ? query.where(whereClause) : query).orderBy(
-    activeRoles.closingDate,
-  );
-  return rows.map((r) => ({
-    roleId: r.roleId,
-    title: r.title,
-    organisation: r.organisation,
-    segment: r.segment,
-    location: r.location,
-    postedDate: r.postedDate,
-    closingDate: r.closingDate,
-    sourceUrl: r.sourceUrl,
-    level: r.level,
-  }));
-}
-
 // ---------------------------------------------------------------------------
-// Trend readers — start/end pair + per-row deltas + (optional) sparkline samples
+// Trend readers
 // ---------------------------------------------------------------------------
 
 export interface TrendDelta {
@@ -535,7 +532,6 @@ export interface SegmentDistributionTrend {
   end: SegmentDistributionRow[];
   start: SegmentDistributionRow[];
   deltas: Record<string, TrendDelta>;
-  /** snapshot_date asc, with a row per (date, segment) pair sampled across the window */
   samplePoints: { snapshotDate: string; segment: string; count: number }[];
 }
 
@@ -553,15 +549,19 @@ export async function getSegmentDistributionTrend(
       ? Promise.resolve([] as SegmentDistributionRow[])
       : fetchSegmentDistribution(w.startDate),
     sampleDates.length > 0
-      ? db
-          .select({
-            snapshotDate: segmentDistribution.snapshotDate,
-            segment: segmentDistribution.segment,
-            count: segmentDistribution.count,
-          })
-          .from(segmentDistribution)
-          .where(inArray(segmentDistribution.snapshotDate, sampleDates))
-      : Promise.resolve([]),
+      ? safe(
+          async () =>
+            db
+              .select({
+                snapshotDate: segmentDistribution.snapshotDate,
+                segment: segmentDistribution.segment,
+                count: segmentDistribution.count,
+              })
+              .from(segmentDistribution)
+              .where(inArray(segmentDistribution.snapshotDate, sampleDates)),
+          [] as { snapshotDate: string; segment: string; count: number }[],
+        )
+      : Promise.resolve([] as { snapshotDate: string; segment: string; count: number }[]),
   ]);
 
   const startBySeg = new Map(startRows.map((r) => [r.segment, r]));
@@ -651,7 +651,10 @@ export async function getOrganisationBreakdownTrend(
   const deltas: Record<string, TrendDelta> = {};
   for (const r of endRows) {
     const s = startByOrg.get(r.organisation);
-    deltas[r.organisation] = diff(r.digitalPostings, s?.digitalPostings ?? r.digitalPostings);
+    deltas[r.organisation] = diff(
+      r.digitalPostings,
+      s?.digitalPostings ?? r.digitalPostings,
+    );
   }
 
   return {
@@ -680,9 +683,9 @@ export interface OrgMovers {
 
 /**
  * Top digital-postings risers and fallers across organisations between the
- * widest available snapshot pair (anchored at "since August" so we get the
- * broadest delta the data supports). The classifier targets Q1 only, so this
- * surfaces intra-Q1 movement — Q4 org-level breakdown is not stored.
+ * widest available snapshot pair (anchored at "since August"). The classifier
+ * targets Q1 only for organisation_breakdown, so this surfaces intra-Q1
+ * movement — Q4 org-level breakdown is not stored.
  */
 export async function getOrgMovers(top = 3): Promise<OrgMovers | null> {
   const trend = await getOrganisationBreakdownTrend("sinceAug");
@@ -735,13 +738,18 @@ export async function getCollisionProfilesTrend(
 
   const [endRow, startRow] = await Promise.all([
     getSnapshotRow(w.endDate),
-    w.startDate === w.endDate ? Promise.resolve(null) : getSnapshotRow(w.startDate),
+    w.startDate === w.endDate
+      ? Promise.resolve(null)
+      : getSnapshotRow(w.startDate),
   ]);
 
   const end = endRow?.collisionProfiles ?? null;
   const start = startRow?.collisionProfiles ?? null;
   const startByTitle = new Map(
-    (start?.profiles ?? []).map((p) => [p.canonical_title, p.organisation_count]),
+    (start?.profiles ?? []).map((p) => [
+      p.canonical_title,
+      p.organisation_count,
+    ]),
   );
   const deltas: Record<string, TrendDelta> = {};
   for (const p of end?.profiles ?? []) {
@@ -779,7 +787,9 @@ export async function getStaffVsConsultantTrend(
 
   const [endRow, startRow] = await Promise.all([
     getSnapshotRow(w.endDate),
-    w.startDate === w.endDate ? Promise.resolve(null) : getSnapshotRow(w.startDate),
+    w.startDate === w.endDate
+      ? Promise.resolve(null)
+      : getSnapshotRow(w.startDate),
   ]);
 
   const end = endRow?.staffVsConsultant ?? null;
@@ -802,5 +812,93 @@ export async function getStaffVsConsultantTrend(
     end,
     start: start ?? end,
     deltas,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Since-August adapter
+// ---------------------------------------------------------------------------
+
+export interface SinceAugTrends {
+  period: { from: string; to: string };
+  segTrend: SegmentDistributionTrend;
+  orgTrend: OrganisationBreakdownTrend;
+  geoTrend: GeographyTrend;
+}
+
+/**
+ * Adapt the since-Aug aggregates into the same Trend shape the sections
+ * already consume. start === end so no delta badges render — the wider
+ * window is the headline, not the within-window movement.
+ */
+export async function getSinceAugTrends(): Promise<SinceAugTrends | null> {
+  const aggregates = await getSinceAugAggregates();
+  if (!aggregates) return null;
+  const { period, totals } = aggregates;
+
+  const segDist: SegmentDistributionRow[] = aggregates.segments.map((s) => ({
+    segment: s.segment,
+    count: s.count,
+    shareOfDigital: s.share_of_digital,
+    shareOfAll:
+      totals.total_postings > 0
+        ? (s.count / totals.total_postings) * 100
+        : 0,
+  }));
+  if (totals.total_postings > totals.digital_postings) {
+    const nd = totals.total_postings - totals.digital_postings;
+    segDist.push({
+      segment: "NOT_DIGITAL",
+      count: nd,
+      shareOfDigital: null,
+      shareOfAll: (nd / totals.total_postings) * 100,
+    });
+  }
+
+  const orgRows: OrganisationBreakdownRow[] = aggregates.organisations.map(
+    (o) => ({
+      organisation: o.organisation,
+      totalPostings: o.total_postings,
+      digitalPostings: o.digital_postings,
+      digitalShare: o.digital_share,
+      topSegment1: o.top_segment_1,
+      topSegment2: o.top_segment_2,
+      topSegment3: o.top_segment_3,
+    }),
+  );
+
+  const geoRows: GeographyRow[] = aggregates.geography.map((g) => ({
+    locationOrCountry: g.location_or_country,
+    count: g.count,
+    share: g.share,
+    topSegment: g.top_segment,
+    topSegments: g.top_segments,
+    organisationCount: g.organisation_count,
+  }));
+
+  return {
+    period,
+    segTrend: {
+      startDate: period.from,
+      endDate: period.to,
+      end: segDist,
+      start: segDist,
+      deltas: {},
+      samplePoints: [],
+    },
+    orgTrend: {
+      startDate: period.from,
+      endDate: period.to,
+      end: orgRows,
+      start: orgRows,
+      deltas: {},
+    },
+    geoTrend: {
+      startDate: period.from,
+      endDate: period.to,
+      end: geoRows,
+      start: geoRows,
+      deltas: {},
+    },
   };
 }

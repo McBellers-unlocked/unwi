@@ -1,8 +1,12 @@
-"""Apply migrations/0003_since_aug_aggregates.sql to Aurora.
+"""Apply migrations/0004_since_aug_aggregates.sql to Aurora.
 
 Standalone helper because npm run db:migrate uses .env.local DATABASE_URL,
 which on this machine points at a non-existent local Postgres. Pulls writer
 creds from Secrets Manager and runs the SQL idempotently.
+
+Originally created when the file was 0003_*; renumbered to 0004 after
+0003_segment_window_aggregates landed on main first. Migration body is
+ADD COLUMN IF NOT EXISTS so re-running is safe.
 """
 import json
 import subprocess
@@ -12,7 +16,7 @@ import psycopg
 
 
 def main() -> None:
-    sql = Path(__file__).resolve().parent.parent / "migrations" / "0003_since_aug_aggregates.sql"
+    sql = Path(__file__).resolve().parent.parent / "migrations" / "0004_since_aug_aggregates.sql"
     statement = sql.read_text(encoding="utf-8")
 
     raw = subprocess.check_output(

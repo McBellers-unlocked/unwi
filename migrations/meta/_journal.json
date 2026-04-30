@@ -19,8 +19,15 @@
     {
       "idx": 2,
       "version": "7",
-      "when": 1745971200000,
-      "tag": "0003_since_aug_aggregates",
+      "when": 1746057600000,
+      "tag": "0003_segment_window_aggregates",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1746230400000,
+      "tag": "0004_since_aug_aggregates",
       "breakpoints": true
     }
   ]

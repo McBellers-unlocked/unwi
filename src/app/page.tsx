@@ -1,7 +1,9 @@
+import { DashboardSwitcher } from "@/components/dashboard-switcher";
 import { EmptyState } from "@/components/empty-state";
 import { Hero } from "@/components/hero";
 import { MoversCallout } from "@/components/movers-callout";
 import { ScrollProgress } from "@/components/scroll-progress";
+import { BenchmarkingView } from "@/components/sections/benchmarking";
 import { Section00Kpi } from "@/components/sections/section-00-kpi";
 import { Section01Shape } from "@/components/sections/section-01-shape";
 import { Section02Demand } from "@/components/sections/section-02-demand";
@@ -16,10 +18,8 @@ import { Section10Roadmap } from "@/components/sections/section-10-roadmap";
 import { WindowSelector } from "@/components/window-selector";
 import {
   getAvailableSnapshotDates,
-  getCollisionProfilesTrend,
   getComparatorShares,
   getGeographyTrend,
-  getOrganisationBreakdownTrend,
   getSegmentDistributionTrend,
   getSinceAugTrends,
   getSnapshotMeta,
@@ -50,64 +50,76 @@ export default async function LongformPage({
   const window = parseWindow(sp.window);
   const isQ1 = window === "q1";
 
-  const [meta, dates] = await Promise.all([
-    getSnapshotMeta(),
-    getAvailableSnapshotDates(),
-  ]);
+  // Benchmarking view is purely static — surface it even when the DB is
+  // unreachable. Hiring view stays gated behind a real meta row.
+  const meta = await getSnapshotMeta().catch(() => null);
 
-  if (!meta) {
-    return (
-      <>
-        <ScrollProgress />
-        <main className="min-h-screen bg-canvas text-ink-body pb-40">
-          <div className="pt-24 pb-16">
-            <div className="mx-auto max-w-column px-6">
-              <EmptyState />
-            </div>
-          </div>
-        </main>
-      </>
-    );
-  }
+  const hiringSlot = meta ? (
+    <HiringDashboard window={window} isQ1={isQ1} />
+  ) : (
+    <div className="pt-12 pb-16">
+      <div className="mx-auto max-w-column px-6">
+        <EmptyState />
+      </div>
+    </div>
+  );
 
+  return (
+    <>
+      <ScrollProgress />
+      <main className="min-h-screen bg-canvas text-ink-body pb-40">
+        <DashboardSwitcher
+          hiringSlot={hiringSlot}
+          benchmarkingSlot={<BenchmarkingView />}
+          defaultView={meta ? "hiring" : "benchmarking"}
+        />
+      </main>
+    </>
+  );
+}
+
+async function HiringDashboard({
+  window,
+  isQ1,
+}: {
+  window: "q1" | "sinceAug";
+  isQ1: boolean;
+}) {
   const [
-    profilesTrend,
+    dates,
     svcTrend,
     comparator,
     sinceAugTrends,
     q1SegTrend,
-    q1OrgTrend,
     q1GeoTrend,
   ] = await Promise.all([
-    getCollisionProfilesTrend(window),
+    getAvailableSnapshotDates(),
     getStaffVsConsultantTrend(window),
     isQ1 ? getComparatorShares() : Promise.resolve(null),
     isQ1 ? Promise.resolve(null) : getSinceAugTrends(),
     isQ1 ? getSegmentDistributionTrend(window) : Promise.resolve(null),
-    isQ1 ? getOrganisationBreakdownTrend(window) : Promise.resolve(null),
     isQ1 ? getGeographyTrend(window) : Promise.resolve(null),
   ]);
 
   const segTrend = isQ1 ? q1SegTrend : sinceAugTrends?.segTrend ?? null;
-  const orgTrend = isQ1 ? q1OrgTrend : sinceAugTrends?.orgTrend ?? null;
   const geoTrend = isQ1 ? q1GeoTrend : sinceAugTrends?.geoTrend ?? null;
 
   const resolved = resolveWindow(window, dates);
   const caption = (() => {
-    if (window === "q1") {
+    if (isQ1) {
       return resolved
         ? `Q1 2026 cut · classifier-measured snapshot of open digital roles, refreshed daily · latest ${fmtDate(resolved.endDate)}`
         : undefined;
     }
     if (sinceAugTrends?.period) {
       const { from, to } = sinceAugTrends.period;
-      const t = sinceAugTrends.segTrend.end.find(
+      const nd = sinceAugTrends.segTrend.end.find(
         (s) => s.segment === "NOT_DIGITAL",
       );
       const totalDigital = sinceAugTrends.segTrend.end
         .filter((s) => s.segment !== "NOT_DIGITAL")
         .reduce((s, r) => s + r.count, 0);
-      const totalAll = totalDigital + (t?.count ?? 0);
+      const totalAll = totalDigital + (nd?.count ?? 0);
       return `${fmtDate(from)} → ${fmtDate(to)} · ${totalAll.toLocaleString("en-GB")} postings (${totalDigital.toLocaleString("en-GB")} digital) · classifier-measured aggregates over the wider window`;
     }
     return "Since-August aggregates not yet populated — re-run the classifier to backfill.";
@@ -115,46 +127,39 @@ export default async function LongformPage({
 
   return (
     <>
-      <ScrollProgress />
-      <main className="min-h-screen bg-canvas text-ink-body pb-40">
-        <Hero window={window} />
+      <Hero window={window} />
 
-        <div className="mx-auto max-w-column px-6 mt-8">
-          <WindowSelector current={window} caption={caption} />
-        </div>
+      <div className="mx-auto max-w-column px-6 mt-8">
+        <WindowSelector current={window} caption={caption} />
+      </div>
 
-        {isQ1 ? (
-          <>
-            <Section00Kpi />
-            <Section01Shape trend={segTrend} comparator={comparator} />
-            <Section02Demand
-              segTrend={segTrend}
-              orgTrend={orgTrend}
-              comparator={comparator}
-            />
-            <MoversCallout />
-            <Section03Shift />
-            <Section04Profiles trend={profilesTrend} window={window} />
-            <Section05Concurrency />
-            <Section06Map trend={geoTrend} window={window} />
-            <Section07BuildBuy trend={svcTrend} />
-            <Section08Signal />
-            <Section09Methodology window={window} />
-            <Section10Roadmap />
-          </>
-        ) : (
-          <>
-            <Section05Concurrency />
-            <Section01Shape trend={segTrend} />
-            <Section02Demand segTrend={segTrend} orgTrend={orgTrend} />
-            <Section04Profiles trend={profilesTrend} window={window} />
-            <Section06Map trend={geoTrend} window={window} />
-            <Section07BuildBuy trend={svcTrend} />
-            <Section09Methodology window={window} />
-            <Section10Roadmap />
-          </>
-        )}
-      </main>
+      {isQ1 ? (
+        <>
+          <Section00Kpi />
+          <Section01Shape trend={segTrend} comparator={comparator} />
+          <Section02Demand />
+          <MoversCallout />
+          <Section03Shift />
+          <Section04Profiles />
+          <Section05Concurrency />
+          <Section06Map trend={geoTrend} window={window} />
+          <Section07BuildBuy trend={svcTrend} />
+          <Section08Signal />
+          <Section09Methodology window={window} />
+          <Section10Roadmap />
+        </>
+      ) : (
+        <>
+          <Section05Concurrency />
+          <Section01Shape trend={segTrend} />
+          <Section02Demand />
+          <Section04Profiles />
+          <Section06Map trend={geoTrend} window={window} />
+          <Section07BuildBuy trend={svcTrend} />
+          <Section09Methodology window={window} />
+          <Section10Roadmap />
+        </>
+      )}
     </>
   );
 }

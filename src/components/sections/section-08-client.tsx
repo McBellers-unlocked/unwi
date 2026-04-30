@@ -80,7 +80,7 @@ export function ForwardSignal({
   return (
     <>
       <h2 className="mt-4 font-serif text-section text-ink-primary tracking-tight">
-        {window30.length} digital roles close in the next 30 days.
+        {roles.length} digital roles close in the next {win} days.
       </h2>
       <p className="mt-4 font-serif italic text-standfirst text-ink-muted">
         Segment breakdown, filterable by period.

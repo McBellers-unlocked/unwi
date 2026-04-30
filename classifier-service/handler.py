@@ -112,6 +112,7 @@ def _write_to_aurora(
             _replace_geography(cur, rows_loaded, snapshot_date)
             _replace_comparator_segment_shares(cur, artefacts, snapshot_date)
             _replace_source_coverage(cur, artefacts, snapshot_date)
+            _replace_segment_window_aggregates(cur, artefacts, snapshot_date)
             _refresh_active_roles(cur, rows_loaded, snapshot_date)
 
             cur.execute(
@@ -329,6 +330,28 @@ def _replace_source_coverage(cur, artefacts, snapshot_date):
         )
 
 
+def _replace_segment_window_aggregates(cur, artefacts, snapshot_date):
+    cur.execute(
+        "DELETE FROM segment_window_aggregates WHERE snapshot_date = %s",
+        (snapshot_date,),
+    )
+    for r in _csv_rows(artefacts["segment_window_aggregates.csv"]):
+        cur.execute(
+            """
+            INSERT INTO segment_window_aggregates
+                (snapshot_date, window_days, segment, role_count, org_count)
+            VALUES (%s, %s, %s, %s, %s)
+            """,
+            (
+                snapshot_date,
+                int(r["window_days"]),
+                r["segment"],
+                int(r["role_count"]),
+                int(r["org_count"]),
+            ),
+        )
+
+
 def _refresh_active_roles(cur, rows, snapshot_date):
     """TRUNCATE + INSERT — a snapshot carries the full current role catalogue."""
     today = date.fromisoformat(snapshot_date)
@@ -400,7 +423,11 @@ def lambda_handler(event, context):
     csv_path, n_total, n_digital, scope_filter = fetch_and_classify(work_dir)
     rows_loaded = load_rows(csv_path)
     artefacts = build_all(
-        csv_path, PRIMARY_PERIOD, COMPARATOR_PERIOD, scope_filter=scope_filter,
+        csv_path,
+        PRIMARY_PERIOD,
+        COMPARATOR_PERIOD,
+        scope_filter=scope_filter,
+        snapshot_date=date.fromisoformat(snapshot_date),
     )
 
     s3_prefix = _upload_artefacts(artefacts, bucket, prefix, snapshot_date)

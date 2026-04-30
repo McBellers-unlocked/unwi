@@ -33,7 +33,7 @@ import sys
 csv.field_size_limit(min(sys.maxsize, 2**31 - 1))
 from collections import Counter, defaultdict
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -41,6 +41,12 @@ from typing import Any, Iterable
 ANCHOR_DATE = date(2025, 8, 1)
 PRIMARY_PERIOD = (date(2026, 1, 1), date(2026, 3, 31))
 COMPARATOR_PERIOD = (date(2025, 10, 1), date(2025, 12, 31))
+
+# Rolling-window sizes for Section 02. A row is in window W if its posted_date
+# is in (snapshot_date - W, snapshot_date]. The Lambda passes its actual
+# snapshot date; dry-run / CLI mode falls back to max(posted_date) so the
+# reference fixture (dated Jan-Apr 2026) produces non-empty aggregates.
+WINDOW_DAYS: tuple[int, ...] = (30, 60, 90)
 
 # Sources explicitly excluded from the apples-to-apples QoQ comparison even
 # when they appear in both primary and comparator periods. UNICC was absent
@@ -76,6 +82,7 @@ ARTEFACT_NAMES = [
     "staff_vs_consultant.json",
     "since_aug_aggregates.json",
     "cut_manifest.json",
+    "segment_window_aggregates.csv",
 ]
 
 
@@ -677,24 +684,25 @@ def build_collision_profiles(
     primary_digital = [
         r for r in rows if _in_period(r.posted_date, primary) and r.segment
     ]
-    by_title: dict[tuple[str, str], set[str]] = defaultdict(set)
+    by_title: dict[tuple[str, str], Counter[str]] = defaultdict(Counter)
     seg_of: dict[tuple[str, str], str] = {}
     for r in primary_digital:
         canonical = _normalize_title(r.title)
         if not canonical:
             continue
         key = (canonical, r.segment)
-        by_title[key].add(r.organization)
+        by_title[key][r.organization] += 1
         seg_of[key] = r.segment
 
     profiles = []
-    for (canonical, seg), orgs in by_title.items():
-        if len(orgs) >= 3:
+    for (canonical, seg), counter in by_title.items():
+        if len(counter) >= 3:
             profiles.append(
                 {
                     "canonical_title": canonical,
-                    "organisation_count": len(orgs),
-                    "organisations": sorted(orgs),
+                    "organisation_count": len(counter),
+                    "organisations": sorted(counter),
+                    "posting_counts": dict(counter),
                     "segment": seg,
                 }
             )
@@ -739,6 +747,42 @@ def build_staff_vs_consultant(
             }
         )
     return json.dumps({"segments": segments}, indent=2).encode("utf-8") + b"\n"
+
+
+def build_segment_window_aggregates(
+    rows: list[Row],
+    snapshot_date: date,
+    windows: tuple[int, ...] = WINDOW_DAYS,
+) -> bytes:
+    """Per-window per-segment role + distinct-org counts.
+
+    A row belongs to window W if its posted_date is in
+    (snapshot_date - W, snapshot_date]. Excludes NOT_DIGITAL (i.e. rows with
+    no segment). Zero-fills (W, segment) pairs with no rows so the reader
+    never sees missing segments.
+    """
+    digital_rows = [
+        r for r in rows if r.segment and r.posted_date is not None
+    ]
+    out: list[list[Any]] = []
+    for w in windows:
+        floor = snapshot_date - timedelta(days=w)
+        in_window = [
+            r for r in digital_rows
+            if floor < r.posted_date <= snapshot_date
+        ]
+        by_seg: dict[str, list[Row]] = defaultdict(list)
+        for r in in_window:
+            by_seg[r.segment].append(r)
+        for s in SEGMENT_ORDER:
+            group = by_seg.get(s, [])
+            role_count = len(group)
+            org_count = len({r.organization for r in group if r.organization})
+            out.append([snapshot_date.isoformat(), w, s, role_count, org_count])
+    return _csv_bytes(
+        ["snapshot_date", "window_days", "segment", "role_count", "org_count"],
+        out,
+    )
 
 
 def build_cut_manifest(
@@ -818,10 +862,19 @@ def build_all(
     comparator: tuple[date, date] = COMPARATOR_PERIOD,
     cut_generated_at: str | None = None,
     scope_filter: dict | None = None,
+    snapshot_date: date | None = None,
 ) -> dict[str, bytes]:
     rows = load_rows(csv_path)
     has_location = any(r.location for r in rows)
     has_grade = any(r.grade_code for r in rows)
+
+    # Rolling-window aggregates anchor on snapshot_date. In Lambda this is
+    # today's UTC date. In dry-run / CLI mode (where today's date sits past
+    # the reference fixture's posted_date range), fall back to the latest
+    # posted_date in the input so windows aren't empty.
+    if snapshot_date is None:
+        posted_dates = [r.posted_date for r in rows if r.posted_date]
+        snapshot_date = max(posted_dates) if posted_dates else date.today()
 
     out = {
         "headline_numbers.json": build_headline_numbers(rows, primary, comparator),
@@ -838,6 +891,9 @@ def build_all(
         "since_aug_aggregates.json": build_since_aug_aggregates(rows),
         "cut_manifest.json": build_cut_manifest(
             rows, primary, comparator, cut_generated_at, scope_filter=scope_filter,
+        ),
+        "segment_window_aggregates.csv": build_segment_window_aggregates(
+            rows, snapshot_date,
         ),
     }
     if has_location:
