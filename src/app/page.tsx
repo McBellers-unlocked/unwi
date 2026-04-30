@@ -15,6 +15,8 @@ import { Section07BuildBuy } from "@/components/sections/section-07-buildbuy";
 import { Section08Signal } from "@/components/sections/section-08-signal";
 import { Section09Methodology } from "@/components/sections/section-09-methodology";
 import { Section10Roadmap } from "@/components/sections/section-10-roadmap";
+import { SinceAugKpi } from "@/components/sections/since-aug-kpi";
+import { SinceAugTopLists } from "@/components/sections/since-aug-top-lists";
 import { WindowSelector } from "@/components/window-selector";
 import {
   getAvailableSnapshotDates,
@@ -94,7 +96,7 @@ async function HiringDashboard({
     q1GeoTrend,
   ] = await Promise.all([
     getAvailableSnapshotDates(),
-    getStaffVsConsultantTrend(window),
+    isQ1 ? getStaffVsConsultantTrend(window) : Promise.resolve(null),
     isQ1 ? getComparatorShares() : Promise.resolve(null),
     isQ1 ? Promise.resolve(null) : getSinceAugTrends(),
     isQ1 ? getSegmentDistributionTrend(window) : Promise.resolve(null),
@@ -150,12 +152,11 @@ async function HiringDashboard({
         </>
       ) : (
         <>
+          <SinceAugKpi />
           <Section05Concurrency />
           <Section01Shape trend={segTrend} />
-          <Section02Demand />
-          <Section04Profiles />
+          <SinceAugTopLists />
           <Section06Map trend={geoTrend} window={window} />
-          <Section07BuildBuy trend={svcTrend} />
           <Section09Methodology window={window} />
           <Section10Roadmap />
         </>
