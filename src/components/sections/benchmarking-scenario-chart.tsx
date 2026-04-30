@@ -14,12 +14,12 @@ const SCENARIO_COLORS: Record<Scenario["id"], string> = {
 };
 
 /**
- * Geometric interpolation between Year 1 and Year 5 anchors so a 1.9% →
+ * Geometric interpolation between Year 1 and Year 5 anchors so a 2.4% →
  * 60% scenario produces a believable curve rather than a straight ramp.
  */
 function interpolateScenario(s: Scenario): { year: number; pct: number }[] {
   const points: { year: number; pct: number }[] = [
-    { year: 0, pct: 1.9 },
+    { year: 0, pct: 2.4 },
     { year: 1, pct: s.year1 },
   ];
   if (s.year1 === s.year5) {
@@ -230,19 +230,19 @@ export function ScenarioChart({
           <line
             x1={xScale(0)}
             x2={xScale(0)}
-            y1={yScale(1.9) - 4}
-            y2={yScale(1.9) + 4}
+            y1={yScale(2.4) - 4}
+            y2={yScale(2.4) + 4}
             stroke="#0A3C5A"
             strokeWidth={2}
           />
           <text
             x={xScale(0) + 6}
-            y={yScale(1.9) - 8}
+            y={yScale(2.4) - 8}
             fontSize={12}
             fontWeight={500}
             fill="#0A3C5A"
           >
-            UNICC today · 1.9%
+            UNICC today · 2.4% (flow)
           </text>
         </g>
       </g>
