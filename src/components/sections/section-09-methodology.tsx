@@ -86,8 +86,13 @@ export async function Section09Methodology({
           comparison (Section&nbsp;03) to preserve apples-to-apples integrity
           with comparator sources.
         </p>
-        <p className="mt-2 font-serif italic text-[13px] text-ink-muted">
-          This is a UNICC prototype. Not for external distribution.
+        <p className="mt-4 text-[13px] text-ink-body leading-snug">
+          Maintained by UNICC&rsquo;s Workforce Intelligence function. The
+          methodology and source list are open by design &mdash; the value
+          of this dataset goes up the more UN-system and IO partners use it.
+          {/* TODO: replace with a real contact handle when supplied */}
+          To request access for your organisation, get in touch with the
+          UNICC team.
         </p>
       </div>
     </section>

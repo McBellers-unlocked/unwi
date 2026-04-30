@@ -1,9 +1,7 @@
-import { DashboardSwitcher } from "@/components/dashboard-switcher";
 import { EmptyState } from "@/components/empty-state";
 import { Hero } from "@/components/hero";
 import { MoversCallout } from "@/components/movers-callout";
 import { ScrollProgress } from "@/components/scroll-progress";
-import { BenchmarkingView } from "@/components/sections/benchmarking";
 import { Section00Kpi } from "@/components/sections/section-00-kpi";
 import { Section01Shape } from "@/components/sections/section-01-shape";
 import { Section02Demand } from "@/components/sections/section-02-demand";
@@ -52,29 +50,21 @@ export default async function LongformPage({
   const window = parseWindow(sp.window);
   const isQ1 = window === "q1";
 
-  // Benchmarking view is purely static — surface it even when the DB is
-  // unreachable. Hiring view stays gated behind a real meta row.
   const meta = await getSnapshotMeta().catch(() => null);
-
-  const hiringSlot = meta ? (
-    <HiringDashboard window={window} isQ1={isQ1} />
-  ) : (
-    <div className="pt-12 pb-16">
-      <div className="mx-auto max-w-column px-6">
-        <EmptyState />
-      </div>
-    </div>
-  );
 
   return (
     <>
       <ScrollProgress />
       <main className="min-h-screen bg-canvas text-ink-body pb-40">
-        <DashboardSwitcher
-          hiringSlot={hiringSlot}
-          benchmarkingSlot={<BenchmarkingView />}
-          defaultView={meta ? "hiring" : "benchmarking"}
-        />
+        {meta ? (
+          <HiringDashboard window={window} isQ1={isQ1} />
+        ) : (
+          <div className="pt-12 pb-16">
+            <div className="mx-auto max-w-column px-6">
+              <EmptyState />
+            </div>
+          </div>
+        )}
       </main>
     </>
   );

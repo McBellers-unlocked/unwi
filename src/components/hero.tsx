@@ -1,4 +1,5 @@
 import { getSnapshotMeta } from "@/lib/data";
+import { PARTNERS } from "@/lib/partners";
 import { getPeriodCopy, type WindowKey } from "@/lib/window";
 
 function formatDataAsOf(iso: string | null): string {
@@ -45,6 +46,13 @@ export async function Hero({ window = "q1" }: { window?: WindowKey } = {}) {
           {" "}
           {formatDataAsOf(meta?.computedAt ?? null).replace(/^Data as of /, "")}
         </p>
+        {PARTNERS.length > 0 && (
+          <p className="mt-2 text-[12px] text-ink-muted leading-snug">
+            Built and run by UNICC. In use by{" "}
+            {PARTNERS.map((p) => p.name).join(", ")}. Open to UN agencies and
+            international organisations.
+          </p>
+        )}
         <div className="mt-8 h-[2px] w-full bg-highlight" />
         <p className="mt-8 font-serif text-[1.25rem] leading-[1.5] text-ink-primary">
           Every UN Common System agency of any size is hiring digital talent
