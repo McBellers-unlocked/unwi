@@ -15,6 +15,13 @@
       "when": 1745308800000,
       "tag": "0002_v2_pivot",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1745971200000,
+      "tag": "0003_since_aug_aggregates",
+      "breakpoints": true
     }
   ]
 }

@@ -74,6 +74,7 @@ ARTEFACT_NAMES = [
     "qoq_change.json",
     "collision_profiles.json",
     "staff_vs_consultant.json",
+    "since_aug_aggregates.json",
     "cut_manifest.json",
 ]
 
@@ -476,6 +477,103 @@ def build_comparator_segment_shares(
     )
 
 
+def build_since_aug_aggregates(
+    rows: list[Row],
+    anchor: date = ANCHOR_DATE,
+) -> bytes:
+    """Aggregates over postings posted on or after the Aug 1 2025 anchor.
+
+    Mirrors segment_distribution / organisation_breakdown / geography but
+    spans the wider 'since August' window — drives the dashboard's
+    Since-August tab. The Q1-period builders above intentionally keep their
+    narrower scope so the Q1 cut stays apples-to-apples with Q4.
+    """
+    in_window = [r for r in rows if r.posted_date and r.posted_date >= anchor]
+    digital = [r for r in in_window if r.segment]
+    total_postings = len(in_window)
+    digital_total = len(digital)
+
+    seg_counts = Counter(r.segment for r in digital)
+    segments = [
+        {
+            "segment": s,
+            "count": seg_counts.get(s, 0),
+            "share_of_digital": _pct(seg_counts.get(s, 0), digital_total),
+        }
+        for s in SEGMENT_ORDER
+    ]
+
+    by_org: dict[str, list[Row]] = defaultdict(list)
+    for r in in_window:
+        if r.organization:
+            by_org[r.organization].append(r)
+    organisations: list[dict[str, Any]] = []
+    for org, group in by_org.items():
+        digital_group = [x for x in group if x.segment]
+        if not digital_group:
+            continue
+        seg_counter = Counter(x.segment for x in digital_group)
+        top = [s for s, _ in seg_counter.most_common(3)]
+        while len(top) < 3:
+            top.append(None)
+        organisations.append(
+            {
+                "organisation": org,
+                "total_postings": len(group),
+                "digital_postings": len(digital_group),
+                "digital_share": _pct(len(digital_group), len(group)),
+                "top_segment_1": top[0],
+                "top_segment_2": top[1],
+                "top_segment_3": top[2],
+            }
+        )
+    organisations.sort(key=lambda r: (-r["digital_postings"], r["organisation"]))
+
+    by_loc: dict[str, list[Row]] = defaultdict(list)
+    for r in digital:
+        if r.location:
+            by_loc[r.location].append(r)
+    geography_rows: list[dict[str, Any]] = []
+    for loc, group in by_loc.items():
+        seg_counter = Counter(r.segment for r in group)
+        top3 = [s for s, _ in seg_counter.most_common(3)]
+        orgs = sorted({r.organization for r in group if r.organization})
+        geography_rows.append(
+            {
+                "location_or_country": loc,
+                "count": len(group),
+                "share": _pct(len(group), digital_total),
+                "top_segment": top3[0] if top3 else None,
+                "top_segments": top3,
+                "organisation_count": len(orgs),
+            }
+        )
+    geography_rows.sort(key=lambda r: (-r["count"], r["location_or_country"]))
+
+    posted_dates = [r.posted_date for r in in_window if r.posted_date]
+    period_to = max(posted_dates).isoformat() if posted_dates else anchor.isoformat()
+
+    payload = {
+        "period": {
+            "from": anchor.isoformat(),
+            "to": period_to,
+        },
+        "totals": {
+            "total_postings": total_postings,
+            "digital_postings": digital_total,
+            "digital_share_pct": _pct(digital_total, total_postings),
+            "organisations_represented": sum(
+                1 for o in organisations if o["digital_postings"] > 0
+            ),
+            "duty_stations_represented": len(geography_rows),
+        },
+        "segments": segments,
+        "organisations": organisations,
+        "geography": geography_rows,
+    }
+    return json.dumps(payload, indent=2).encode("utf-8") + b"\n"
+
+
 def build_concurrency_timeseries(
     rows: list[Row],
     primary: tuple[date, date] = PRIMARY_PERIOD,
@@ -737,6 +835,7 @@ def build_all(
         "qoq_change.json": build_qoq_change(rows, primary, comparator),
         "collision_profiles.json": build_collision_profiles(rows, primary),
         "staff_vs_consultant.json": build_staff_vs_consultant(rows, primary),
+        "since_aug_aggregates.json": build_since_aug_aggregates(rows),
         "cut_manifest.json": build_cut_manifest(
             rows, primary, comparator, cut_generated_at, scope_filter=scope_filter,
         ),
