@@ -6,22 +6,10 @@ import {
   type SegmentCode,
 } from "@/lib/data";
 
-function fmtDate(iso: string): string {
-  const d = new Date(iso + "T00:00:00Z");
-  if (Number.isNaN(d.valueOf())) return iso;
-  return d.toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    timeZone: "UTC",
-  });
-}
-
 export async function MoversCallout() {
   const movers = await getOrgMovers(3);
   if (!movers) return null;
-  const hasMovement = movers.risers.length > 0 || movers.fallers.length > 0;
-  if (!hasMovement) return null;
-  if (movers.startDate === movers.endDate) return null;
+  if (movers.risers.length === 0 && movers.fallers.length === 0) return null;
 
   return (
     <section className="mt-24">
@@ -33,20 +21,15 @@ export async function MoversCallout() {
           Who's adding roles. Who's pulling back.
         </h2>
         <p className="mt-4 font-serif italic text-standfirst text-ink-muted">
-          Largest organisation-level changes in open digital roles between
-          {" "}{fmtDate(movers.startDate)} and {fmtDate(movers.endDate)}.
+          Largest organisation-level changes in digital postings between
+          Q4 2025 (Oct &ndash; Dec) and Q1 2026 (Jan &ndash; Mar), across the
+          apples-to-apples source set used in section 03.
         </p>
 
         <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-10">
           <Column title="Top 3 risers" tone="up" rows={movers.risers} />
           <Column title="Top 3 fallers" tone="down" rows={movers.fallers} />
         </div>
-
-        <p className="mt-6 text-caption text-ink-muted">
-          Based on intra-Q1 snapshot history. Q4 2025 organisation-level
-          totals are not stored independently of the Q1 cut, so this is the
-          widest org-level delta the data supports today.
-        </p>
       </div>
     </section>
   );
@@ -68,7 +51,7 @@ function Column({
       </p>
       {rows.length === 0 ? (
         <p className="mt-4 text-[13px] text-ink-muted italic">
-          No {tone === "up" ? "risers" : "fallers"} in this window.
+          No {tone === "up" ? "risers" : "fallers"} in this comparison.
         </p>
       ) : (
         <ul className="mt-4 flex flex-col">
@@ -91,10 +74,10 @@ function Column({
               </div>
               <div className="text-right">
                 <p className="numeric text-[15px] font-semibold text-ink-primary">
-                  {m.endCount}
+                  {m.q1Count}
                 </p>
                 <p className="numeric text-[11px] text-ink-muted">
-                  was {m.startCount}
+                  Q4: {m.q4Count}
                 </p>
                 <div className="mt-1">
                   <DeltaBadge value={m.delta} />

@@ -29,6 +29,13 @@
       "when": 1746230400000,
       "tag": "0004_since_aug_aggregates",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1746316800000,
+      "tag": "0005_comparator_organisation_breakdown",
+      "breakpoints": true
     }
   ]
 }

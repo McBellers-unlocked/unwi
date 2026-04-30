@@ -111,6 +111,7 @@ def _write_to_aurora(
             _replace_organisation_breakdown(cur, artefacts, snapshot_date)
             _replace_geography(cur, rows_loaded, snapshot_date)
             _replace_comparator_segment_shares(cur, artefacts, snapshot_date)
+            _replace_comparator_organisation_breakdown(cur, artefacts, snapshot_date)
             _replace_source_coverage(cur, artefacts, snapshot_date)
             _replace_segment_window_aggregates(cur, artefacts, snapshot_date)
             _refresh_active_roles(cur, rows_loaded, snapshot_date)
@@ -305,6 +306,27 @@ def _replace_comparator_segment_shares(cur, artefacts, snapshot_date):
                 int(r["comparator_count"]),
                 float(r["comparator_share"]),
                 float(r["delta_pp"]),
+            ),
+        )
+
+
+def _replace_comparator_organisation_breakdown(cur, artefacts, snapshot_date):
+    cur.execute(
+        "DELETE FROM comparator_organisation_breakdown WHERE snapshot_date = %s",
+        (snapshot_date,),
+    )
+    for r in _csv_rows(artefacts["comparator_organisation_breakdown.csv"]):
+        cur.execute(
+            """
+            INSERT INTO comparator_organisation_breakdown
+                (snapshot_date, organisation, primary_count, comparator_count)
+            VALUES (%s, %s, %s, %s)
+            """,
+            (
+                snapshot_date,
+                r["organisation"],
+                int(r["primary_count"]),
+                int(r["comparator_count"]),
             ),
         )
 
