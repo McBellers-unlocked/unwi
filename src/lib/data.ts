@@ -21,6 +21,7 @@ import { and, desc, eq, inArray, lte, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import {
   activeRoles,
+  comparatorOrganisationBreakdown,
   comparatorSegmentShares,
   geography,
   organisationBreakdown,
@@ -668,56 +669,64 @@ export async function getOrganisationBreakdownTrend(
 
 export interface OrgMoverRow {
   organisation: string;
-  startCount: number;
-  endCount: number;
+  q4Count: number;
+  q1Count: number;
   delta: number;
   topSegment: string | null;
 }
 
 export interface OrgMovers {
-  startDate: string;
-  endDate: string;
   risers: OrgMoverRow[];
   fallers: OrgMoverRow[];
 }
 
 /**
- * Top digital-postings risers and fallers across organisations between the
- * widest available snapshot pair (anchored at "since August"). The classifier
- * targets Q1 only for organisation_breakdown, so this surfaces intra-Q1
- * movement — Q4 org-level breakdown is not stored.
+ * Top digital-postings risers and fallers across organisations between
+ * Q4 2025 and Q1 2026, restricted to apples-to-apples sources by the
+ * classifier. Reads comparator_organisation_breakdown (primary_count = Q1,
+ * comparator_count = Q4); joins to organisation_breakdown only for the
+ * top-segment annotation.
  */
 export async function getOrgMovers(top = 3): Promise<OrgMovers | null> {
-  const trend = await getOrganisationBreakdownTrend("sinceAug");
-  if (!trend) return null;
+  return safe<OrgMovers | null>(async () => {
+    const d = await getLatestDate();
+    if (!d) return null;
 
-  const startByOrg = new Map(trend.start.map((r) => [r.organisation, r]));
-  const candidates: OrgMoverRow[] = trend.end.map((r) => {
-    const s = startByOrg.get(r.organisation);
-    return {
+    const [comparatorRows, breakdownRows] = await Promise.all([
+      db
+        .select()
+        .from(comparatorOrganisationBreakdown)
+        .where(eq(comparatorOrganisationBreakdown.snapshotDate, d)),
+      db
+        .select()
+        .from(organisationBreakdown)
+        .where(eq(organisationBreakdown.snapshotDate, d)),
+    ]);
+    if (comparatorRows.length === 0) return null;
+
+    const segByOrg = new Map<string, string | null>(
+      breakdownRows.map((r) => [r.organisation, r.topSegment1]),
+    );
+
+    const candidates: OrgMoverRow[] = comparatorRows.map((r) => ({
       organisation: r.organisation,
-      startCount: s?.digitalPostings ?? 0,
-      endCount: r.digitalPostings,
-      delta: r.digitalPostings - (s?.digitalPostings ?? 0),
-      topSegment: r.topSegment1,
-    };
-  });
+      q4Count: r.comparatorCount,
+      q1Count: r.primaryCount,
+      delta: r.primaryCount - r.comparatorCount,
+      topSegment: segByOrg.get(r.organisation) ?? null,
+    }));
 
-  const risers = [...candidates]
-    .filter((m) => m.delta > 0)
-    .sort((a, b) => b.delta - a.delta)
-    .slice(0, top);
-  const fallers = [...candidates]
-    .filter((m) => m.delta < 0)
-    .sort((a, b) => a.delta - b.delta)
-    .slice(0, top);
+    const risers = [...candidates]
+      .filter((m) => m.delta > 0)
+      .sort((a, b) => b.delta - a.delta)
+      .slice(0, top);
+    const fallers = [...candidates]
+      .filter((m) => m.delta < 0)
+      .sort((a, b) => a.delta - b.delta)
+      .slice(0, top);
 
-  return {
-    startDate: trend.startDate,
-    endDate: trend.endDate,
-    risers,
-    fallers,
-  };
+    return { risers, fallers };
+  }, null);
 }
 
 export interface CollisionProfilesTrend {

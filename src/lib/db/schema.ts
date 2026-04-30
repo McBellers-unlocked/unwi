@@ -219,6 +219,17 @@ export const comparatorSegmentShares = pgTable(
   (t) => ({ pk: primaryKey({ columns: [t.snapshotDate, t.segment] }) }),
 );
 
+export const comparatorOrganisationBreakdown = pgTable(
+  "comparator_organisation_breakdown",
+  {
+    snapshotDate: date("snapshot_date").notNull(),
+    organisation: text("organisation").notNull(),
+    primaryCount: integer("primary_count").notNull(),
+    comparatorCount: integer("comparator_count").notNull(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.snapshotDate, t.organisation] }) }),
+);
+
 export const sourceCoverage = pgTable(
   "source_coverage",
   {
@@ -294,6 +305,8 @@ export type SegmentDistributionRow = typeof segmentDistribution.$inferSelect;
 export type OrganisationBreakdownRow = typeof organisationBreakdown.$inferSelect;
 export type GeographyRow = typeof geography.$inferSelect;
 export type ComparatorSegmentShareRow = typeof comparatorSegmentShares.$inferSelect;
+export type ComparatorOrganisationBreakdownRow =
+  typeof comparatorOrganisationBreakdown.$inferSelect;
 export type SourceCoverageRow = typeof sourceCoverage.$inferSelect;
 export type ActiveRole = typeof activeRoles.$inferSelect;
 export type SnapshotRun = typeof snapshotRuns.$inferSelect;

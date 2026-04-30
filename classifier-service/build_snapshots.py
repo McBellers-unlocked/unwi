@@ -76,6 +76,7 @@ ARTEFACT_NAMES = [
     "grade_distribution.csv",
     "source_coverage.csv",
     "comparator_segment_shares.csv",
+    "comparator_organisation_breakdown.csv",
     "concurrency_timeseries.json",
     "qoq_change.json",
     "collision_profiles.json",
@@ -437,6 +438,49 @@ def build_source_coverage(rows: list[Row], primary: tuple[date, date]) -> bytes:
     return _csv_bytes(
         ["source", "total_count", "digital_count", "share_of_digital"],
         [list(r) for r in records],
+    )
+
+
+def build_comparator_organisation_breakdown(
+    rows: list[Row],
+    primary: tuple[date, date],
+    comparator: tuple[date, date],
+) -> bytes:
+    """Per-organisation digital-posting counts for both periods.
+
+    Powers the Q4 ↔ Q1 movers callout. Mirrors comparator_segment_shares but
+    at the organisation level — every org seen in either period gets a row,
+    with primary_count = digital postings in Q1 and comparator_count =
+    digital postings in Q4. Either count can be zero. Restricted to
+    apples-to-apples sources for parity with section 03.
+    """
+    primary_rows = [r for r in rows if _in_period(r.posted_date, primary)]
+    comp_rows = [r for r in rows if _in_period(r.posted_date, comparator)]
+
+    primary_sources = {r.source for r in primary_rows if r.source}
+    comp_sources = {r.source for r in comp_rows if r.source}
+    common_sources = (primary_sources & comp_sources) - COMPARATOR_EXCLUDE_SOURCES
+
+    p_counts: Counter[str] = Counter()
+    for r in primary_rows:
+        if r.segment and r.organization and r.source in common_sources:
+            p_counts[r.organization] += 1
+    c_counts: Counter[str] = Counter()
+    for r in comp_rows:
+        if r.segment and r.organization and r.source in common_sources:
+            c_counts[r.organization] += 1
+
+    orgs = sorted(set(p_counts) | set(c_counts))
+    out = []
+    for org in orgs:
+        p = p_counts.get(org, 0)
+        c = c_counts.get(org, 0)
+        if p == 0 and c == 0:
+            continue
+        out.append([org, p, c])
+    return _csv_bytes(
+        ["organisation", "primary_count", "comparator_count"],
+        out,
     )
 
 
@@ -882,6 +926,9 @@ def build_all(
         "organisation_breakdown.csv": build_organisation_breakdown(rows, primary),
         "source_coverage.csv": build_source_coverage(rows, primary),
         "comparator_segment_shares.csv": build_comparator_segment_shares(
+            rows, primary, comparator
+        ),
+        "comparator_organisation_breakdown.csv": build_comparator_organisation_breakdown(
             rows, primary, comparator
         ),
         "concurrency_timeseries.json": build_concurrency_timeseries(rows, primary),
