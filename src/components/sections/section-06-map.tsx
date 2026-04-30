@@ -1,6 +1,11 @@
 import { promises as fs } from "fs";
 import path from "path";
-import { getGeography, getSnapshotMeta } from "@/lib/data";
+import {
+  getGeography,
+  getSnapshotMeta,
+  type GeographyTrend,
+} from "@/lib/data";
+import { getPeriodCopy, type WindowKey } from "@/lib/window";
 import { WorldMap } from "./section-06-worldmap";
 
 interface Station {
@@ -25,12 +30,19 @@ function normaliseKey(loc: string): string {
   return first.trim();
 }
 
-export async function Section06Map() {
+export async function Section06Map({
+  trend,
+  window = "q1",
+}: {
+  trend?: GeographyTrend | null;
+  window?: WindowKey;
+}) {
   const [geo, stations, meta] = await Promise.all([
-    getGeography(),
+    trend?.end ? Promise.resolve(trend.end) : getGeography(),
     loadStations(),
     getSnapshotMeta(),
   ]);
+  const copy = getPeriodCopy(window);
 
   const points = geo
     .map((g) => {
@@ -41,6 +53,7 @@ export async function Section06Map() {
         lat: s.lat,
         lng: s.lng,
         count: g.count,
+        delta: trend?.deltas[g.locationOrCountry]?.delta,
       };
     })
     .filter((p): p is NonNullable<typeof p> => p !== null)
@@ -76,11 +89,10 @@ export async function Section06Map() {
 
       <div className="mx-auto max-w-column px-6 mt-4">
         <p className="text-caption text-ink-muted">
-          Five cities hold {top5Pct}% of Q1 2026 digital hiring. The
-          concentration reflects HQ-centric workforce structure — but creates
-          local labour market collision when multiple agencies recruit
-          simultaneously in the same city. Source: UN Workforce Intelligence,
-          Q1 2026.
+          Five cities hold {top5Pct}% {copy.mapHeadline}. The concentration
+          reflects HQ-centric workforce structure — but creates local labour
+          market collision when multiple agencies recruit simultaneously in
+          the same city. Source: {copy.mapSource}.
         </p>
       </div>
     </section>

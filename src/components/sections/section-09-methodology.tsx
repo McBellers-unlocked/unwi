@@ -1,10 +1,16 @@
 import { getCutManifest, getSnapshotMeta } from "@/lib/data";
+import { getPeriodCopy, type WindowKey } from "@/lib/window";
 
-export async function Section09Methodology() {
+export async function Section09Methodology({
+  window = "q1",
+}: {
+  window?: WindowKey;
+} = {}) {
   const [meta, manifest] = await Promise.all([
     getSnapshotMeta(),
     getCutManifest(),
   ]);
+  const copy = getPeriodCopy(window);
 
   const sha = (meta?.classifierVersionSha ?? "").slice(0, 7) || "7f702e1";
   const commonSources = manifest?.apples_to_apples?.common_sources ?? [];
@@ -46,10 +52,7 @@ export async function Section09Methodology() {
               term="Scope"
               description="UN Common System whitelist, 63 entity buckets"
             />
-            <Item
-              term="Period"
-              description="Q1 2026 (Jan 1 — Mar 31) vs Q4 2025 (Oct 1 — Dec 31)"
-            />
+            <Item term="Period" description={copy.methodPeriod} />
           </dl>
           <dl className="space-y-5">
             <Item term="Rows classified" description="878 / 15,423" />

@@ -85,6 +85,39 @@ export interface StaffVsConsultant {
   }>;
 }
 
+export interface SinceAugAggregates {
+  period: { from: string; to: string };
+  totals: {
+    total_postings: number;
+    digital_postings: number;
+    digital_share_pct: number;
+    organisations_represented: number;
+    duty_stations_represented: number;
+  };
+  segments: Array<{
+    segment: string;
+    count: number;
+    share_of_digital: number;
+  }>;
+  organisations: Array<{
+    organisation: string;
+    total_postings: number;
+    digital_postings: number;
+    digital_share: number;
+    top_segment_1: string | null;
+    top_segment_2: string | null;
+    top_segment_3: string | null;
+  }>;
+  geography: Array<{
+    location_or_country: string;
+    count: number;
+    share: number;
+    top_segment: string | null;
+    top_segments: string[];
+    organisation_count: number;
+  }>;
+}
+
 export const snapshots = pgTable("snapshots", {
   snapshotDate: date("snapshot_date").primaryKey(),
   classifierVersionSha: text("classifier_version_sha").notNull(),
@@ -111,6 +144,7 @@ export const snapshots = pgTable("snapshots", {
   staffVsConsultant: jsonb("staff_vs_consultant")
     .$type<StaffVsConsultant>()
     .notNull(),
+  sinceAugAggregates: jsonb("since_aug_aggregates").$type<SinceAugAggregates>(),
   computedAt: timestamp("computed_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

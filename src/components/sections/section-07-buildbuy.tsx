@@ -1,12 +1,21 @@
-import { getStaffVsConsultant, SEGMENT_LABELS } from "@/lib/data";
+import { DeltaBadge } from "@/components/delta-badge";
+import {
+  getStaffVsConsultant,
+  SEGMENT_LABELS,
+  type StaffVsConsultantTrend,
+} from "@/lib/data";
 
 const ANNOTATIONS: Record<string, string> = {
   CYBER: "71% consultant — the UN is not building its own cyber capacity",
   ENTERPRISE: "0% — entirely staff-built",
 };
 
-export async function Section07BuildBuy() {
-  const svc = await getStaffVsConsultant();
+export async function Section07BuildBuy({
+  trend,
+}: {
+  trend?: StaffVsConsultantTrend | null;
+}) {
+  const svc = trend?.end ?? (await getStaffVsConsultant());
   const segments = svc?.segments ?? [];
 
   const rows = segments
@@ -16,6 +25,7 @@ export async function Section07BuildBuy() {
         SEGMENT_LABELS[s.segment as keyof typeof SEGMENT_LABELS] ?? s.segment,
       consultantPct: s.consultant_share_pct,
       annotation: ANNOTATIONS[s.segment],
+      delta: trend?.deltas[s.segment]?.delta ?? 0,
     }))
     .sort((a, b) => b.consultantPct - a.consultantPct);
 
@@ -53,12 +63,13 @@ interface Row {
   label: string;
   consultantPct: number;
   annotation?: string;
+  delta: number;
 }
 
 function ConsultantBars({ rows }: { rows: Row[] }) {
   // Track width reserved for the bar area; the rest of the row carries the
   // numeric label and any inline annotation without competing with the bar.
-  const BAR_AREA_PCT = 62;
+  const BAR_AREA_PCT = 56;
   return (
     <ul className="flex flex-col gap-[10px]">
       {rows.map((r) => {
@@ -79,13 +90,15 @@ function ConsultantBars({ rows }: { rows: Row[] }) {
                   }}
                 />
                 <span
-                  className="numeric absolute top-1/2 -translate-y-1/2 text-[14px] font-semibold text-claret"
+                  className="numeric absolute top-1/2 -translate-y-1/2 inline-flex items-baseline gap-2 text-[14px] font-semibold text-claret"
                   style={{
                     left: `calc(${pct}% + 8px)`,
                     fontFamily: "var(--font-serif)",
                   }}
                 >
                   {Math.round(r.consultantPct)}%
+                  {/* Lower consultant share is "better" (more in-house build) — invert delta colour. */}
+                  <DeltaBadge value={r.delta} suffix="pp" invertColour />
                 </span>
               </div>
             </div>

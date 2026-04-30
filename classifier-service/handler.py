@@ -156,11 +156,12 @@ def _upsert_snapshot(cur, artefacts, snapshot_date):
             headline_numbers, cut_manifest,
             concurrency_timeseries, qoq_change,
             collision_profiles, staff_vs_consultant,
+            since_aug_aggregates,
             computed_at
         )
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                 %s::jsonb, %s::jsonb, %s::jsonb, %s::jsonb,
-                %s::jsonb, %s::jsonb, now())
+                %s::jsonb, %s::jsonb, %s::jsonb, now())
         ON CONFLICT (snapshot_date) DO UPDATE SET
             classifier_version_sha   = EXCLUDED.classifier_version_sha,
             primary_period_from      = EXCLUDED.primary_period_from,
@@ -177,6 +178,7 @@ def _upsert_snapshot(cur, artefacts, snapshot_date):
             qoq_change               = EXCLUDED.qoq_change,
             collision_profiles       = EXCLUDED.collision_profiles,
             staff_vs_consultant      = EXCLUDED.staff_vs_consultant,
+            since_aug_aggregates     = EXCLUDED.since_aug_aggregates,
             computed_at              = now()
         """,
         (
@@ -196,6 +198,7 @@ def _upsert_snapshot(cur, artefacts, snapshot_date):
             artefacts["qoq_change.json"].decode("utf-8"),
             artefacts["collision_profiles.json"].decode("utf-8"),
             artefacts["staff_vs_consultant.json"].decode("utf-8"),
+            artefacts["since_aug_aggregates.json"].decode("utf-8"),
         ),
     )
 
