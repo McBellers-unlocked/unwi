@@ -120,7 +120,8 @@ def test_cut_manifest_shape(artefacts):
 def test_artefact_names_registered():
     from build_snapshots import ARTEFACT_NAMES
 
-    assert len(ARTEFACT_NAMES) == 15
+    assert len(ARTEFACT_NAMES) == 16
     assert "since_aug_aggregates.json" in ARTEFACT_NAMES
     assert "segment_window_aggregates.csv" in ARTEFACT_NAMES
     assert "comparator_organisation_breakdown.csv" in ARTEFACT_NAMES
+    assert "scope_breakdown.json" in ARTEFACT_NAMES

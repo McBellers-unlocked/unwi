@@ -36,6 +36,8 @@ RICH_FIELDS = [
     "source_url",
     "level",
     "description",
+    "scope_group",
+    "scope_bucket",
 ]
 
 
@@ -53,11 +55,16 @@ def fetch_page(page, api_url=API, per_page=PER_PAGE):
 
 
 def fetch_and_classify(out_dir, api_url=API, per_page=PER_PAGE):
-    """Fetch all postings, filter to UN Common System, classify, write rich CSV.
+    """Fetch all postings, classify, write rich CSV with scope_group tagging.
 
-    The UN whitelist is applied BEFORE classification — non-UN orgs (NATO, EU
-    institutions, Bretton Woods, regional dev banks, OSCE, ESA, etc.) never
-    enter any downstream metric.
+    Every fetched row is written. Rows from orgs in any tracked scope group
+    (UN Common System, Bretton Woods, Regional Development Banks, European
+    Union, Other International Organisations) are tagged accordingly; rows
+    from untracked orgs are skipped (kept out of all aggregates).
+
+    Existing UN-only aggregates filter at aggregate time (build_snapshots),
+    so adding partner data does not pollute the UN sections; partner data
+    surfaces only via the new scope_breakdown artefact.
 
     Returns (classified_csv_path, rows_fetched, rows_classified, scope_filter).
     scope_filter is a dict embedded into cut_manifest so the filter is auditable.
@@ -67,10 +74,12 @@ def fetch_and_classify(out_dir, api_url=API, per_page=PER_PAGE):
     out_path = out_dir / "classified_v2_full.csv"
 
     page = 1
-    n_total = 0             # rows returned by the aggregator
-    n_filtered_in = 0       # rows that passed the UN whitelist
-    n_filtered_out = 0      # rows rejected by scope filter
-    n_digital = 0           # passed rows that classified into a digital segment
+    n_total = 0
+    n_kept = 0
+    n_un = 0
+    n_partner = 0
+    n_no_scope = 0
+    n_digital_un = 0
     with out_path.open("w", encoding="utf-8", newline="") as f:
         w = csv.DictWriter(f, fieldnames=RICH_FIELDS, extrasaction="ignore")
         w.writeheader()
@@ -82,11 +91,15 @@ def fetch_and_classify(out_dir, api_url=API, per_page=PER_PAGE):
             for row in items:
                 n_total += 1
                 org = row.get("organization") or ""
-                in_scope, _bucket, _reason = classify_scope(org)
-                if not in_scope:
-                    n_filtered_out += 1
+                scope_group, bucket, _reason = classify_scope(org)
+                if scope_group is None:
+                    n_no_scope += 1
                     continue
-                n_filtered_in += 1
+                n_kept += 1
+                if scope_group == "UN Common System":
+                    n_un += 1
+                else:
+                    n_partner += 1
                 seg, conf, reason = classify(
                     {
                         "title": row.get("title") or "",
@@ -94,8 +107,8 @@ def fetch_and_classify(out_dir, api_url=API, per_page=PER_PAGE):
                         "organization": org,
                     }
                 )
-                if seg:
-                    n_digital += 1
+                if seg and scope_group == "UN Common System":
+                    n_digital_un += 1
                 w.writerow(
                     {
                         "id": row.get("id", ""),
@@ -111,6 +124,8 @@ def fetch_and_classify(out_dir, api_url=API, per_page=PER_PAGE):
                         "source_url": row.get("source_url", "") or row.get("url", ""),
                         "level": row.get("level", "") or row.get("grade", ""),
                         "description": row.get("description", "") or "",
+                        "scope_group": scope_group,
+                        "scope_bucket": bucket or "",
                     }
                 )
             if not data.get("hasMore"):
@@ -118,12 +133,21 @@ def fetch_and_classify(out_dir, api_url=API, per_page=PER_PAGE):
             page += 1
 
     scope_filter = {
-        "type": "un_common_system_whitelist",
+        "type": "multi_scope_whitelist",
         "whitelist_size": whitelist_size(),
-        "filtered_in_rows": n_filtered_in,
-        "filtered_out_rows": n_filtered_out,
+        # Kept for backward compat — UN-Common-System counts equivalent to
+        # the previous in/out figures.
+        "filtered_in_rows": n_un,
+        "filtered_out_rows": n_no_scope + n_partner,
+        # New: full scope breakdown.
+        "rows_kept_total": n_kept,
+        "rows_un_common_system": n_un,
+        "rows_partner_groups": n_partner,
+        "rows_untracked": n_no_scope,
     }
-    return out_path, n_total, n_digital, scope_filter
+    # Existing rows_classified (n_digital) is the UN-Common-System digital
+    # count — the apples-to-apples figure for all the UN-flavoured aggregates.
+    return out_path, n_total, n_digital_un, scope_filter
 
 
 def main():

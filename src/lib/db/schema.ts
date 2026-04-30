@@ -85,6 +85,25 @@ export interface StaffVsConsultant {
   }>;
 }
 
+export interface ScopeBreakdown {
+  groups: Array<{
+    group: string;
+    total_postings: number;
+    digital_postings: number;
+    digital_share_pct: number;
+    organisations_represented: number;
+    earliest_posted: string | null;
+    latest_posted: string | null;
+    top_segments: Array<{ segment: string; count: number }>;
+    top_buckets: Array<{ bucket: string; count: number }>;
+  }>;
+  totals: {
+    total_postings: number;
+    digital_postings: number;
+    groups_represented: number;
+  };
+}
+
 export interface SinceAugAggregates {
   period: { from: string; to: string };
   totals: {
@@ -145,6 +164,7 @@ export const snapshots = pgTable("snapshots", {
     .$type<StaffVsConsultant>()
     .notNull(),
   sinceAugAggregates: jsonb("since_aug_aggregates").$type<SinceAugAggregates>(),
+  scopeBreakdown: jsonb("scope_breakdown").$type<ScopeBreakdown>(),
   computedAt: timestamp("computed_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

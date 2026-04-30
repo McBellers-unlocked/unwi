@@ -2,6 +2,7 @@ import { EmptyState } from "@/components/empty-state";
 import { Hero } from "@/components/hero";
 import { MoversCallout } from "@/components/movers-callout";
 import { ScrollProgress } from "@/components/scroll-progress";
+import { CoverageTile } from "@/components/sections/coverage-tile";
 import { Section00Kpi } from "@/components/sections/section-00-kpi";
 import { Section01Shape } from "@/components/sections/section-01-shape";
 import { Section02Demand } from "@/components/sections/section-02-demand";
@@ -124,6 +125,8 @@ async function HiringDashboard({
       <div className="mx-auto max-w-column px-6 mt-8">
         <WindowSelector current={window} caption={caption} />
       </div>
+
+      <CoverageTile />
 
       {isQ1 ? (
         <>

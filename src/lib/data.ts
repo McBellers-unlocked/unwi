@@ -34,6 +34,7 @@ import {
   type CutManifest,
   type HeadlineNumbers,
   type QoQChange,
+  type ScopeBreakdown,
   type SinceAugAggregates,
   type StaffVsConsultant,
 } from "@/lib/db/schema";
@@ -213,11 +214,16 @@ export async function getStaffVsConsultant(): Promise<StaffVsConsultant | null> 
   return row?.staffVsConsultant ?? null;
 }
 
-export type { SinceAugAggregates } from "@/lib/db/schema";
+export type { SinceAugAggregates, ScopeBreakdown } from "@/lib/db/schema";
 
 export async function getSinceAugAggregates(): Promise<SinceAugAggregates | null> {
   const row = await getSnapshotRow();
   return row?.sinceAugAggregates ?? null;
+}
+
+export async function getScopeBreakdown(): Promise<ScopeBreakdown | null> {
+  const row = await getSnapshotRow();
+  return row?.scopeBreakdown ?? null;
 }
 
 // ---------------------------------------------------------------------------

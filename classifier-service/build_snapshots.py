@@ -39,8 +39,48 @@ from typing import Any, Iterable
 
 
 ANCHOR_DATE = date(2025, 8, 1)
-PRIMARY_PERIOD = (date(2026, 1, 1), date(2026, 3, 31))
-COMPARATOR_PERIOD = (date(2025, 10, 1), date(2025, 12, 31))
+
+
+def _quarter_bounds(d: date) -> tuple[date, date]:
+    """Calendar-quarter (start, end) for the quarter containing date d."""
+    q = (d.month - 1) // 3
+    start_month = q * 3 + 1
+    start = date(d.year, start_month, 1)
+    end_month = start_month + 2
+    if end_month == 12:
+        end = date(d.year, 12, 31)
+    else:
+        end = date(d.year, end_month + 1, 1) - __import__("datetime").timedelta(days=1)
+    return start, end
+
+
+def _previous_quarter(quarter_start: date) -> tuple[date, date]:
+    """The quarter immediately before the one starting at quarter_start."""
+    prev = quarter_start - __import__("datetime").timedelta(days=1)
+    return _quarter_bounds(prev)
+
+
+def _most_recent_complete_quarter(today: date) -> tuple[date, date]:
+    """Latest calendar quarter that has fully ended on or before today.
+    On 2026-04-30 this is Q1 2026 (Jan 1 – Mar 31); on 2026-07-01 it
+    auto-rolls to Q2 2026 (Apr 1 – Jun 30).
+    """
+    cur_start, cur_end = _quarter_bounds(today)
+    if today >= cur_end:
+        return cur_start, cur_end
+    return _previous_quarter(cur_start)
+
+
+def _current_periods(today: date | None = None) -> tuple[tuple[date, date], tuple[date, date]]:
+    today = today or date.today()
+    primary = _most_recent_complete_quarter(today)
+    comparator = _previous_quarter(primary[0])
+    return primary, comparator
+
+
+# Periods derived at module import time. Auto-rolls each quarter without
+# code changes; pin to a fixed date in tests via _current_periods(today=...).
+PRIMARY_PERIOD, COMPARATOR_PERIOD = _current_periods()
 
 # Rolling-window sizes for Section 02. A row is in window W if its posted_date
 # is in (snapshot_date - W, snapshot_date]. The Lambda passes its actual
@@ -82,6 +122,7 @@ ARTEFACT_NAMES = [
     "collision_profiles.json",
     "staff_vs_consultant.json",
     "since_aug_aggregates.json",
+    "scope_breakdown.json",
     "cut_manifest.json",
     "segment_window_aggregates.csv",
 ]
@@ -103,6 +144,11 @@ class Row:
     description: str | None
     closing_date: date | None
     source_url: str | None
+    # Scope-group classification from un_system.classify_scope. UN Common
+    # System rows feed the existing aggregates; partner-group rows surface
+    # only via the scope_breakdown artefact.
+    scope_group: str | None = None
+    scope_bucket: str | None = None
 
 
 def _parse_date(s: str | None) -> date | None:
@@ -164,9 +210,25 @@ def load_rows(csv_path: Path) -> list[Row]:
                     description=desc,
                     closing_date=_parse_date(r.get("closing_date")),
                     source_url=(r.get("source_url") or "").strip() or None,
+                    scope_group=(r.get("scope_group") or "").strip() or None,
+                    scope_bucket=(r.get("scope_bucket") or "").strip() or None,
                 )
             )
     return rows
+
+
+def _un_only(rows: list[Row]) -> list[Row]:
+    """Filter to UN Common System rows. New scope-tagged CSVs include partner
+    rows that the existing UN-flavoured aggregates must NOT count. Older CSVs
+    (no scope_group column) treat every row as UN — preserves backward
+    compatibility with reference fixtures.
+    """
+    if not rows:
+        return rows
+    has_tag = any(r.scope_group is not None for r in rows)
+    if not has_tag:
+        return rows
+    return [r for r in rows if r.scope_group == "UN Common System"]
 
 
 def _in_period(d: date | None, period: tuple[date, date]) -> bool:
@@ -526,6 +588,59 @@ def build_comparator_segment_shares(
         ],
         out,
     )
+
+
+def build_scope_breakdown(all_rows: list[Row]) -> bytes:
+    """Per-scope-group totals across the wider, non-UN-filtered row set.
+
+    Surfaces coverage beyond the UN Common System: Bretton Woods, Regional
+    Development Banks, EU institutions, Other International Organisations.
+    Partner-group rows are still passed through the digital classifier, so
+    digital_postings reflects the same taxonomy. Untracked rows (no
+    scope_group) are not included.
+
+    Earliest-posted-date is reported per group so partners can see how far
+    back their data reaches in the aggregator feed.
+    """
+    from un_system import GROUP_ORDER
+
+    groups: list[dict[str, Any]] = []
+    for group_name in GROUP_ORDER:
+        group_rows = [r for r in all_rows if r.scope_group == group_name]
+        if not group_rows:
+            continue
+        digital = [r for r in group_rows if r.segment]
+        orgs = {r.organization for r in group_rows if r.organization}
+        posted = [r.posted_date for r in group_rows if r.posted_date]
+        seg_counts = Counter(r.segment for r in digital)
+        bucket_counts = Counter(r.scope_bucket for r in group_rows if r.scope_bucket)
+        groups.append({
+            "group": group_name,
+            "total_postings": len(group_rows),
+            "digital_postings": len(digital),
+            "digital_share_pct": _pct(len(digital), len(group_rows)),
+            "organisations_represented": len(orgs),
+            "earliest_posted": min(posted).isoformat() if posted else None,
+            "latest_posted": max(posted).isoformat() if posted else None,
+            "top_segments": [
+                {"segment": s, "count": c}
+                for s, c in seg_counts.most_common(3)
+            ],
+            "top_buckets": [
+                {"bucket": b, "count": c}
+                for b, c in bucket_counts.most_common(3)
+            ],
+        })
+
+    payload = {
+        "groups": groups,
+        "totals": {
+            "total_postings": sum(g["total_postings"] for g in groups),
+            "digital_postings": sum(g["digital_postings"] for g in groups),
+            "groups_represented": len(groups),
+        },
+    }
+    return json.dumps(payload, indent=2).encode("utf-8") + b"\n"
 
 
 def build_since_aug_aggregates(
@@ -908,7 +1023,11 @@ def build_all(
     scope_filter: dict | None = None,
     snapshot_date: date | None = None,
 ) -> dict[str, bytes]:
-    rows = load_rows(csv_path)
+    all_rows = load_rows(csv_path)
+    # Existing aggregates filter to UN Common System so partner rows in the
+    # new scope-tagged feed don't pollute UN-flavoured numbers. The new
+    # scope_breakdown artefact uses all_rows to surface partner totals.
+    rows = _un_only(all_rows)
     has_location = any(r.location for r in rows)
     has_grade = any(r.grade_code for r in rows)
 
@@ -936,6 +1055,7 @@ def build_all(
         "collision_profiles.json": build_collision_profiles(rows, primary),
         "staff_vs_consultant.json": build_staff_vs_consultant(rows, primary),
         "since_aug_aggregates.json": build_since_aug_aggregates(rows),
+        "scope_breakdown.json": build_scope_breakdown(all_rows),
         "cut_manifest.json": build_cut_manifest(
             rows, primary, comparator, cut_generated_at, scope_filter=scope_filter,
         ),

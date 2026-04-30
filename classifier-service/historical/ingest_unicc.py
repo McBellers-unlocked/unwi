@@ -125,11 +125,12 @@ def main() -> None:
         title = (raw.get("title") or "").strip()
         org = (raw.get("organization") or "").strip()
 
-        in_scope, _bucket, _why = classify_scope(org)
-        if not in_scope:
+        scope_group, _bucket, _why = classify_scope(org)
+        if scope_group != "UN Common System":
             raise SystemExit(
-                f"row {idx} org '{org}' not in UN whitelist — aborting "
-                "so we don't silently drop rows"
+                f"row {idx} org '{org}' not in UN Common System (got "
+                f"scope_group={scope_group!r}) — aborting so we don't "
+                "silently drop rows"
             )
 
         canonical_loc = _canonical_location(raw.get("location") or "")
