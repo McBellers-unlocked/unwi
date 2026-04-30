@@ -16,18 +16,41 @@ export const BENCHMARKING_META = {
   windowDescription:
     "UN-system peer postings drawn from the aggregated UN jobs board, " +
     "1 August 2025 to 28 April 2026 (n=856 across 47 organisations).",
+  /**
+   * Primary headline figure: vacancies UNICC advertised in the same flow
+   * window as peers (Aug 2025 – Apr 2026), measured at the strict-tier
+   * AI-Core bar. Reads apples-to-apples against UN Secretariat 4.0%, UNDP
+   * 35.3%, World Bank 40.0%. Of 41 vacancies, only the Data Governance
+   * Consultant (advertised 2025-11-03, "AI Data Governance, sits in Data
+   * & AI Section") clears strict-tier AI-Core; the others are AI-Adjacent
+   * (LLM penetration testing, application security) or False-Match (RPA,
+   * Copilot productivity tooling — neither is in the strict-tier regex,
+   * and Project Management is the paper's named zero-AI-Core function).
+   */
   uniccBaseline: {
-    totalStaffPDs: 373,
-    aiCorePDs: 7,
-    aiCorePct: 1.9,
+    totalVacancies: 41,
+    aiCoreVacancies: 1,
+    aiCorePct: 2.4,
+    /**
+     * Stock baseline from the v3 paper, kept for provenance: 7 of 373
+     * staff PDs qualify as AI-Core in the full library snapshot. The
+     * flow figure above is what reads against the peer flow rates;
+     * the stock figure is what the paper's structural finding rests on.
+     */
+    pdLibraryBaseline: {
+      totalStaffPDs: 373,
+      aiCorePDs: 7,
+      aiCorePct: 1.9,
+    },
   },
 } as const;
 
 /**
- * Headline peer comparison. UNICC figure is *stock* (full PD library);
- * UN-system peer figures are *flow* (postings issued during the 9-month
- * window). Private-sector benchmark is from the Cisco AI Workforce
- * Consortium ICT in Motion 2025 study (G7 economies).
+ * Headline peer comparison. All UN-system rows are *flow* (postings
+ * issued during the 9-month window Aug 2025 – Apr 2026); the UNICC row
+ * is now also flow (41 vacancies advertised in the same window) so the
+ * comparison is apples-to-apples. Private-sector benchmark is from the
+ * Cisco AI Workforce Consortium ICT in Motion 2025 study (G7 economies).
  */
 export type PeerRow = {
   label: string;
@@ -39,11 +62,11 @@ export type PeerRow = {
 
 export const PEER_LADDER: PeerRow[] = [
   {
-    label: "UNICC PD library (staff)",
-    n: 373,
-    pct: 1.9,
+    label: "UNICC vacancies (flow)",
+    n: 41,
+    pct: 2.4,
     kind: "unicc",
-    note: "Stock figure — April 2026 PD library",
+    note: "Aug 2025 – Apr 2026 flow · 1 of 41 strict-tier AI-Core (Data Governance Consultant) · PD library stock baseline 1.9% (7 of 373)",
   },
   {
     label: "UN Secretariat",
@@ -196,7 +219,7 @@ export const AGENCY_BREAKDOWN: AgencyRow[] = [
 
 /**
  * Convergence-trajectory scenarios from §4 of the paper. Each scenario
- * runs from the current 1.9% baseline at Year 0 to its Year-5 endpoint.
+ * runs from the current 2.4% flow baseline at Year 0 to its Year-5 endpoint.
  * Year-1 and Year-5 values are anchored; Years 2-4 are interpolated
  * geometrically for a smooth in-between curve.
  */
@@ -215,8 +238,8 @@ export const SCENARIOS: Scenario[] = [
     id: "A",
     name: "Status quo",
     detail: "No template change",
-    year1: 1.9,
-    year5: 1.9,
+    year1: 2.4,
+    year5: 2.4,
     reaches: "Nothing — relative gap widens",
   },
   {

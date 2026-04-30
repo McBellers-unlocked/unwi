@@ -48,7 +48,8 @@ function Lede({
   zeroAiTotal: number;
   zeroAiSharePct: number;
 }) {
-  const { totalStaffPDs, aiCorePDs, aiCorePct } = BENCHMARKING_META.uniccBaseline;
+  const { totalVacancies, aiCoreVacancies, aiCorePct, pdLibraryBaseline } =
+    BENCHMARKING_META.uniccBaseline;
 
   return (
     <header className="pt-12">
@@ -64,28 +65,38 @@ function Lede({
           has not yet recognised that AI exists.
         </h1>
         <p className="mt-6 font-serif italic text-standfirst text-ink-muted">
-          {aiCorePDs} of {totalStaffPDs} UNICC staff PDs ({aiCorePct.toFixed(1)}%)
-          qualify as AI-Core under a strict-tier definition. Private-sector ICT
-          providers in G7 economies operate at 78%. UNDP and the World Bank sit
-          north of 35%.
+          {aiCoreVacancies} of {totalVacancies} UNICC vacancies issued between
+          August 2025 and April 2026 ({aiCorePct.toFixed(1)}%) qualify as
+          AI-Core under the strict-tier definition. Private-sector ICT
+          providers in G7 economies operate at 78%. UNDP and the World Bank
+          sit north of 35%.
         </p>
         <div className="mt-8 h-[2px] w-full bg-highlight" />
 
         <div className="mt-10 grid grid-cols-1 sm:grid-cols-3 gap-6">
           <FeatureStat
             value={`${aiCorePct.toFixed(1)}%`}
-            label="UNICC PD library, staff"
+            label={`UNICC vacancies (${aiCoreVacancies}/${totalVacancies}, flow)`}
             tone="claret"
           />
           <FeatureStat value="35.3%" label="UNDP, closest UN peer" />
           <FeatureStat value="78%" label="Private-sector ICT (G7)" tone="highlight" />
         </div>
 
+        <p className="mt-6 text-[12px] text-ink-muted leading-snug">
+          PD library stock baseline (v3 paper):{" "}
+          {pdLibraryBaseline.aiCorePDs} of {pdLibraryBaseline.totalStaffPDs}{" "}
+          staff PDs ({pdLibraryBaseline.aiCorePct.toFixed(1)}%) qualify as
+          AI-Core. The flow figure above is the apples-to-apples comparator
+          to the peer flow rates; the stock figure is what the function-level
+          structural finding rests on.
+        </p>
+
         <p className="mt-10 font-serif text-[1.25rem] leading-[1.5] text-ink-primary">
-          {zeroAiTotal} of UNICC&rsquo;s {totalStaffPDs} staff PDs sit in
-          functions with zero AI-Core specifications — {zeroAiSharePct}% of the
-          library. The competitive question is not whether private-sector and
-          UNDP capability will be available to UN clients. It is whether
+          {zeroAiTotal} of UNICC&rsquo;s {pdLibraryBaseline.totalStaffPDs} staff
+          PDs sit in functions with zero AI-Core specifications — {zeroAiSharePct}%
+          of the library. The competitive question is not whether private-sector
+          and UNDP capability will be available to UN clients. It is whether
           UNICC&rsquo;s documented capability profile reads as a credible
           alternative to either.
         </p>
@@ -148,12 +159,17 @@ function Section1Ladder() {
         </div>
 
         <p className="mt-6 text-caption text-ink-muted">
-          UNICC figure is stock (April 2026 PD library). Peer figures are flow
-          over the 9-month window August 2025 to April 2026 (n=856 across 47
-          UN-system organisations). Private-sector benchmark from the Cisco AI
-          Workforce Consortium ICT in Motion 2025 study (G7 economies). The
-          asymmetry pulls in UNICC&rsquo;s favour — flow rates over-represent
-          recent issuance.
+          UNICC figure is now flow (41 vacancies issued Aug 2025 – Apr 2026,
+          1 strict-tier AI-Core), measured the same way as the UN-system
+          peers. Peer flow window is the 9 months Aug 2025 – Apr 2026
+          (n=856 across 47 UN-system organisations). Private-sector benchmark
+          from the Cisco AI Workforce Consortium ICT in Motion 2025 study
+          (G7 economies). Stock baseline from the v3 paper{" "}
+          ({BENCHMARKING_META.uniccBaseline.pdLibraryBaseline.aiCorePDs} of{" "}
+          {BENCHMARKING_META.uniccBaseline.pdLibraryBaseline.totalStaffPDs}{" "}
+          staff PDs,{" "}
+          {BENCHMARKING_META.uniccBaseline.pdLibraryBaseline.aiCorePct.toFixed(1)}%)
+          retained for provenance.
         </p>
       </div>
     </section>
