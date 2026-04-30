@@ -10,8 +10,8 @@
  *
  * Each query is wrapped in safe() so a missing relation, transient connection
  * error, or schema drift returns empty/null instead of bubbling a 500 up to
- * the route. Sections render gracefully with no data; the benchmarking view
- * (which doesn't touch the DB) stays available.
+ * the route. Sections render gracefully with no data rather than 500-ing
+ * the whole page.
  *
  * No computation here other than delta arithmetic — the heavy lifting (segment
  * classification, JSON artefacts) is done by the Python classifier Lambda.
