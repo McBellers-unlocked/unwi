@@ -2,14 +2,23 @@ import {
   getOrganisationBreakdown,
   getSegmentDistribution,
   SEGMENT_LABELS,
+  type ComparatorShareRow,
+  type OrganisationBreakdownTrend,
+  type SegmentDistributionTrend,
 } from "@/lib/data";
 import { SegmentScatter } from "./section-02-scatter";
 
-export async function Section02Demand() {
-  const [dist, orgs] = await Promise.all([
-    getSegmentDistribution(),
-    getOrganisationBreakdown(),
-  ]);
+export async function Section02Demand({
+  segTrend,
+  orgTrend,
+  comparator,
+}: {
+  segTrend?: SegmentDistributionTrend | null;
+  orgTrend?: OrganisationBreakdownTrend | null;
+  comparator?: ComparatorShareRow[] | null;
+}) {
+  const dist = segTrend?.end ?? (await getSegmentDistribution());
+  const orgs = orgTrend?.end ?? (await getOrganisationBreakdown());
 
   const orgsBySeg = new Map<string, Set<string>>();
   for (const o of orgs) {
@@ -20,6 +29,11 @@ export async function Section02Demand() {
     }
   }
 
+  const q4ByCode = new Map<string, number>();
+  if (comparator) {
+    for (const c of comparator) q4ByCode.set(c.segment, c.comparatorCount);
+  }
+
   const points = dist
     .filter((r) => r.segment !== "NOT_DIGITAL")
     .map((r) => ({
@@ -28,7 +42,11 @@ export async function Section02Demand() {
         SEGMENT_LABELS[r.segment as keyof typeof SEGMENT_LABELS] ?? r.segment,
       roles: r.count,
       orgs: orgsBySeg.get(r.segment)?.size ?? 0,
+      q4Roles: q4ByCode.get(r.segment) ?? null,
+      delta: segTrend?.deltas[r.segment]?.delta,
     }));
+
+  const showSlope = (comparator?.length ?? 0) > 0;
 
   return (
     <section className="mt-24">
@@ -51,7 +69,19 @@ export async function Section02Demand() {
         <p className="mt-4 text-caption text-ink-muted">
           Each dot is one of nine digital segments. Segments toward the
           top-right are where the UN system competes with itself most.
-          Source: UN Workforce Intelligence, Q1 2026 classified dataset.
+          {showSlope ? (
+            <>
+              {" "}Horizontal arrows behind each bubble show Q4 2025 → Q1 2026
+              role-volume movement (teal = grew, claret = shrank). Y-axis is
+              held at Q1 organisation count because Q4 org-level breakdown is
+              not stored.
+            </>
+          ) : (
+            <>
+              {" "}Δ shown on each label is the net change in role count over
+              the active window.
+            </>
+          )}
         </p>
       </div>
     </section>

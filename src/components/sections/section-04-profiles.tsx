@@ -1,8 +1,21 @@
-import { getCollisionProfiles, SEGMENT_LABELS } from "@/lib/data";
+import { DeltaBadge } from "@/components/delta-badge";
+import {
+  getCollisionProfiles,
+  SEGMENT_LABELS,
+  type CollisionProfilesTrend,
+} from "@/lib/data";
+import { getPeriodCopy, type WindowKey } from "@/lib/window";
 
-export async function Section04Profiles() {
-  const collisions = await getCollisionProfiles();
+export async function Section04Profiles({
+  trend,
+  window = "q1",
+}: {
+  trend?: CollisionProfilesTrend | null;
+  window?: WindowKey;
+}) {
+  const collisions = trend?.end ?? (await getCollisionProfiles());
   const profiles = collisions?.profiles ?? [];
+  const copy = getPeriodCopy(window);
 
   const sorted = [...profiles].sort(
     (a, b) => b.organisation_count - a.organisation_count,
@@ -10,6 +23,8 @@ export async function Section04Profiles() {
   const [feature, ...rest] = sorted;
 
   if (!feature) return null;
+
+  const featureDelta = trend?.deltas[feature.canonical_title]?.delta ?? 0;
 
   return (
     <section className="mt-24">
@@ -39,8 +54,9 @@ export async function Section04Profiles() {
             <p className="mt-2 font-serif text-[32px] font-semibold text-ink-primary leading-[1.1]">
               {feature.canonical_title}
             </p>
-            <p className="mt-2 text-[11px] uppercase tracking-[0.18em] text-ink-muted">
-              in Q1 2026
+            <p className="mt-2 inline-flex items-baseline gap-2 text-[11px] uppercase tracking-[0.18em] text-ink-muted">
+              {copy.collisionsTimeframe}
+              <DeltaBadge value={featureDelta} />
             </p>
           </div>
         </div>
@@ -55,22 +71,26 @@ export async function Section04Profiles() {
               Other collision profiles
             </p>
             <ul className="mt-4">
-              {rest.map((p) => (
-                <li
-                  key={p.canonical_title}
-                  className="grid grid-cols-[140px_220px_1fr] gap-6 py-3 border-t border-rule items-baseline"
-                >
-                  <span className="numeric text-[14px] text-ink-primary font-medium">
-                    {p.organisation_count} organisations
-                  </span>
-                  <span className="text-[14px] text-ink-primary">
-                    {p.canonical_title}
-                  </span>
-                  <span className="text-[14px] text-ink-muted">
-                    {p.organisations.join(", ")}
-                  </span>
-                </li>
-              ))}
+              {rest.map((p) => {
+                const d = trend?.deltas[p.canonical_title]?.delta ?? 0;
+                return (
+                  <li
+                    key={p.canonical_title}
+                    className="grid grid-cols-[140px_220px_1fr] gap-6 py-3 border-t border-rule items-baseline"
+                  >
+                    <span className="numeric inline-flex items-baseline gap-2 text-[14px] text-ink-primary font-medium">
+                      {p.organisation_count} orgs
+                      <DeltaBadge value={d} />
+                    </span>
+                    <span className="text-[14px] text-ink-primary">
+                      {p.canonical_title}
+                    </span>
+                    <span className="text-[14px] text-ink-muted">
+                      {p.organisations.join(", ")}
+                    </span>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         )}
