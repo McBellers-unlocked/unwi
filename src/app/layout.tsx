@@ -21,7 +21,6 @@ export const metadata: Metadata = {
   title: "UN Workforce Intelligence",
   description:
     "The UN system is competing with itself for digital talent. A UNICC prototype.",
-  icons: [{ rel: "icon", url: "/favicon.svg", type: "image/svg+xml" }],
   robots: { index: false, follow: false },
 };
 

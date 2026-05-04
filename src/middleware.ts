@@ -14,6 +14,10 @@ const OPEN_PATHS = [
   "/api/auth",
   "/_next",
   "/favicon",
+  "/icon",
+  "/apple-icon",
+  "/opengraph-image",
+  "/twitter-image",
 ];
 
 function isOpen(pathname: string): boolean {
@@ -59,6 +63,6 @@ export function middleware(req: NextRequest) {
 export const config = {
   matcher: [
     // Skip Next internals; otherwise match every route.
-    "/((?!_next/static|_next/image|favicon.ico|favicon.svg).*)",
+    "/((?!_next/static|_next/image|favicon.ico|favicon.svg|icon.png|apple-icon.png|opengraph-image.png|twitter-image.png).*)",
   ],
 };
